@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "target": "ES2020",
+    "moduleResolution": "NodeNext",
+    "baseUrl": "./",
+    "types": ["node"],
+    "paths": {
+      "@codex-card/shared": ["../shared/src"],
+      "@codex-card/shared/*": ["../shared/src/*"]
+    },
+    "rootDirs": ["src", "../shared/src"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts"]
+}

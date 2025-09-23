@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+.card-rush-wrapper {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-rush-wrapper::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("./assets/cards-fall.png");
+  background-size: 220px 220px;
+  background-repeat: repeat;
+  opacity: 0.22;
+  animation: card-rush-fall 30s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes card-rush-fall {
+  from {
+    transform: translateY(-10%);
+  }
+  to {
+    transform: translateY(10%);
+  }
+}
