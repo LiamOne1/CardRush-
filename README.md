@@ -1,4 +1,4 @@
-# Codex UNO
+# Card Rush UNO
 
 Real-time, browser-based UNO built for distributed systems coursework. The app ships as a small monorepo with a TypeScript/Express/Socket.IO backend and a React + Vite frontend, allowing 2-4 friends to join a lobby by code and play according to classic rules.
 
