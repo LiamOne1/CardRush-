@@ -54,36 +54,39 @@ const GameBoard: React.FC<{
   const { discardTop, currentPlayerId, currentColor, players, drawStack } = gameState;
 
   return (
-    <div className="flex h-full flex-col gap-6">
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div className="flex h-full flex-col gap-8">
+      <section className="grid grid-cols-1 gap-4 rounded-3xl border border-white/10 bg-slate-900/30 p-4 backdrop-blur sm:grid-cols-2">
         {players.map((player) => (
           <PlayerBadge key={player.id} player={player} isActive={player.id === currentPlayerId} />
         ))}
       </section>
 
-      <section className="flex flex-1 flex-col items-center justify-center gap-6 rounded-3xl border border-white/10 bg-white/5 p-6 text-white shadow-inner">
-        <div className="flex flex-col items-center gap-2">
-          <p className="text-xs uppercase tracking-widest text-white/40">Discard</p>
+      <section className="relative flex flex-1 flex-col items-center justify-center gap-8 overflow-hidden rounded-[2.25rem] border border-white/15 bg-gradient-to-br from-cyan-500/20 via-indigo-500/15 to-fuchsia-500/20 p-8 text-white shadow-[0_0_45px_rgba(96,165,250,0.25)] backdrop-blur-lg">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.18),_transparent_55%)]" />
+        <div className="flex flex-col items-center gap-3 text-center">
+          <p className="text-xs uppercase tracking-[0.5em] text-white/60">Discard</p>
           <UnoCard card={discardTop} disabled onSelect={() => undefined} />
-          <p className="text-sm text-white/60">Current color: {currentColor.toUpperCase()}</p>
-          {drawStack > 0 && <p className="text-sm text-emerald-300">Draw stack: +{drawStack}</p>}
+          <p className="text-sm uppercase tracking-[0.4em] text-white/80">Color: {currentColor.toUpperCase()}</p>
+          {drawStack > 0 && (
+            <p className="text-sm font-semibold uppercase tracking-[0.4em] text-amber-200">Draw stack +{drawStack}</p>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
           <button
             type="button"
             onClick={onDraw}
-            className="rounded-full bg-white/10 px-6 py-3 text-sm font-semibold uppercase tracking-widest text-white transition hover:bg-white/20"
+            className="rounded-full bg-gradient-to-r from-rose-500 via-amber-400 to-emerald-400 px-8 py-3 text-sm font-semibold uppercase tracking-[0.4em] text-slate-900 shadow-lg shadow-rose-500/30 transition hover:brightness-105"
           >
             Draw Card
           </button>
         </div>
       </section>
 
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-display text-xl uppercase tracking-[0.3em] text-white">Your Hand</h2>
-          <p className="text-xs uppercase tracking-widest text-white/50">
+      <section className="rounded-3xl border border-white/10 bg-slate-900/40 p-6 backdrop-blur">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-display text-xl uppercase tracking-[0.4em] text-white">Your Hand</h2>
+          <p className="text-xs uppercase tracking-[0.5em] text-white/70">
             {canPlay ? "Your turn" : "Waiting for opponents"}
           </p>
         </div>
@@ -103,7 +106,7 @@ const GameBoard: React.FC<{
               }}
             />
           ))}
-          {hand.length === 0 && <p className="text-sm text-white/50">No cards in hand.</p>}
+          {hand.length === 0 && <p className="text-sm text-white/60">No cards in hand.</p>}
         </div>
       </section>
 
@@ -118,7 +121,7 @@ const GameBoard: React.FC<{
                 <button
                   key={color}
                   type="button"
-                  className={"rounded-xl px-4 py-3 text-sm font-semibold uppercase tracking-widest text-slate-950"}
+                  className="rounded-xl px-4 py-3 text-sm font-semibold uppercase tracking-widest text-slate-950"
                   style={{
                     backgroundColor:
                       color === "yellow"
@@ -141,7 +144,6 @@ const GameBoard: React.FC<{
     </div>
   );
 };
-
 const LobbyPanel: React.FC<{
   lobby: LobbyState;
   isHost: boolean;
@@ -172,7 +174,7 @@ const LobbyPanel: React.FC<{
             Start Game
           </button>
         ) : (
-          <p className="text-xs uppercase tracking-widest text-white/50">Waiting for host to start...</p>
+          <p className="text-xs uppercase tracking-[0.5em] text-white/70">Waiting for host to start...</p>
         )}
         <button
           type="button"
