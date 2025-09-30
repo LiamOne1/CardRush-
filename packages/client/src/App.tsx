@@ -262,12 +262,22 @@ const GameOverPanel: React.FC<{
         </p>
       </header>
       <ul className="space-y-3">
-        {scoreRows.map(({ player, score }) => (
-          <li key={player.id} className="flex items-center justify-between rounded-xl bg-black/30 px-4 py-3 text-sm">
-            <span className="font-semibold uppercase tracking-widest text-white/70">{player.name}</span>
-            <span className="font-display text-lg text-emerald-300">{score}</span>
-          </li>
-        ))}
+        {scoreRows.map(({ player }) => {
+          const isWinner = player.id === data.winnerId;
+          return (
+            <li key={player.id} className="flex items-center justify-between rounded-xl bg-black/30 px-4 py-3 text-sm">
+              <span className="font-semibold uppercase tracking-widest text-white/70">{player.name}</span>
+              <span
+                className={`flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.35em] ${isWinner ? "text-amber-300" : "text-rose-300"}`}
+                role="status"
+                aria-label={isWinner ? "Winner" : "Defeated"}
+              >
+                <span aria-hidden="true" className="text-xl">{isWinner ? "\u2605" : "\u2715"}</span>
+                {isWinner ? "Winner" : "Eliminated"}
+              </span>
+            </li>
+          );
+        })}
       </ul>
       <button
         type="button"
