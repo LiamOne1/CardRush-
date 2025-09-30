@@ -7,8 +7,8 @@
     "baseUrl": "./",
     "types": ["node"],
     "paths": {
-      "@codex-card/shared": ["../shared/src"],
-      "@codex-card/shared/*": ["../shared/src/*"]
+      "@code-card/shared": ["../shared/src"],
+      "@code-card/shared/*": ["../shared/src/*"]
     },
     "rootDirs": ["src", "../shared/src"]
   },

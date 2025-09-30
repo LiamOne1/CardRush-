@@ -5,8 +5,8 @@ import type {
   PlayerSummary,
   PublicGameState,
   RushAlertPayload
-} from "@codex-card/shared";
-import { CARD_COLORS } from "@codex-card/shared";
+} from "@code-card/shared";
+import { CARD_COLORS } from "@code-card/shared";
 import { UnoCard } from "./components/Card";
 import { PlayerBadge } from "./components/PlayerBadge";
 import { useSocket } from "./providers/socket-provider";

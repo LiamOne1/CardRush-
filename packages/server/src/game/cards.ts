@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
-import type { Card, CardColor } from "@codex-card/shared";
-import * as Shared from "@codex-card/shared";
+import type { Card, CardColor } from "@code-card/shared";
+import * as Shared from "@code-card/shared";
 
 const { ACTION_CARD_VALUES, CARD_COLORS, NUMBER_CARD_VALUES } = Shared;
 

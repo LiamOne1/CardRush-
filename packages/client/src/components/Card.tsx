@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import type { Card } from "@codex-card/shared";
+import type { Card } from "@code-card/shared";
 
 const colorClassMap: Record<Card["color"], string> = {
   red: "bg-gradient-to-br from-uno-red to-red-700",

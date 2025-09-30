@@ -9,7 +9,7 @@ import type {
   RoomCode,
   RushAlertPayload,
   ServerToClientEvents
-} from "@codex-card/shared";
+} from "@code-card/shared";
 import { UnoGame } from "../game/state.js";
 
 interface RoomPlayer {

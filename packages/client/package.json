@@ -1,5 +1,5 @@
 {
-  "name": "@codex-card/client",
+  "name": "@code-card/client",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@codex-card/shared": "file:../shared",
+    "@code-card/shared": "file:../shared",
     "@tanstack/react-query": "^5.35.2",
     "clsx": "^2.1.1",
     "react": "^18.3.1",

@@ -4,7 +4,7 @@ import type {
   GameEndedPayload,
   PlayerSummary,
   PublicGameState
-} from "@codex-card/shared";
+} from "@code-card/shared";
 import { buildDeck, canPlayCard, shuffle } from "./cards.js";
 
 export interface InternalPlayerState {

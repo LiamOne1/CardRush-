@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import type { PlayerSummary } from "@codex-card/shared";
+import type { PlayerSummary } from "@code-card/shared";
 
 interface PlayerBadgeProps {
   player: PlayerSummary;

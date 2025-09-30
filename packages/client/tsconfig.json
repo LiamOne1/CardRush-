@@ -8,8 +8,8 @@
     "baseUrl": "./",
     "types": ["vite/client"],
     "paths": {
-      "@codex-card/shared": ["../shared/src"],
-      "@codex-card/shared/*": ["../shared/src/*"]
+      "@code-card/shared": ["../shared/src"],
+      "@code-card/shared/*": ["../shared/src/*"]
     }
   },
   "include": ["src"],

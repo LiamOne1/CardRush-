@@ -1,5 +1,5 @@
 {
-  "name": "@codex-card/server",
+  "name": "@code-card/server",
   "version": "0.1.0",
   "description": "Real-time UNO server",
   "main": "dist/index.js",
@@ -13,7 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@codex-card/shared": "file:../shared",
+    "@code-card/shared": "file:../shared",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "nanoid": "^4.0.2",

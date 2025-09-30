@@ -4,7 +4,7 @@ import type {
   InterServerEvents,
   ServerToClientEvents,
   SocketData
-} from "@codex-card/shared";
+} from "@code-card/shared";
 import { RoomService } from "../services/room-service.js";
 
 type UnoServer = Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;

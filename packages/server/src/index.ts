@@ -9,7 +9,7 @@ import type {
   InterServerEvents,
   ServerToClientEvents,
   SocketData
-} from "@codex-card/shared";
+} from "@code-card/shared";
 import { registerSocketHandlers } from "./socket/handlers.js";
 
 const __filename = fileURLToPath(import.meta.url);
