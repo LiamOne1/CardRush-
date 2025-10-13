@@ -379,7 +379,7 @@ export class UnoGame {
         }
         case "colorRush": {
           const color = payload.color;
-          if (!color || color === "wild") {
+          if (!color) {
             throw new Error("Select a valid color to discard");
           }
           if (!player.hand.some((handCard) => handCard.color === color)) {

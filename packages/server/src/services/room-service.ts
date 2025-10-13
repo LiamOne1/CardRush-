@@ -144,7 +144,13 @@ export class RoomService {
         name: player.name,
         hand: [],
         hasCalledUno: false,
-        connected: true
+        connected: true,
+        powerCards: [],
+        powerPoints: 0,
+        hasPlayedPowerCardThisTurn: false,
+        isAwaitingPowerDraw: false,
+        pendingSkipCount: null,
+        frozenForTurns: 0
       }))
     });
 
