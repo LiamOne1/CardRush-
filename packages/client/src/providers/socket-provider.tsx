@@ -23,10 +23,12 @@ const resolveServerUrl = () => {
     return "http://localhost:4000";
   }
 
-  const { protocol, hostname } = window.location;
-  const fallbackPort = import.meta.env.VITE_SERVER_PORT ?? "4000";
+  if (import.meta.env.VITE_SERVER_PORT) {
+    const { protocol, hostname } = window.location;
+    return `${protocol}//${hostname}:${import.meta.env.VITE_SERVER_PORT}`;
+  }
 
-  return `${protocol}//${hostname}:${fallbackPort}`;
+  return window.location.origin;
 };
 
 export const SocketProvider = ({ children }: SocketProviderProps) => {
