@@ -6,6 +6,9 @@ import type {
   ErrorPayload,
   LobbyState,
   PlayCardPayload,
+  PlayPowerCardPayload,
+  PowerCard,
+  PowerStatePayload,
   RoomCode,
   RushAlertPayload,
   ServerToClientEvents
@@ -19,6 +22,9 @@ interface RoomPlayer {
   hand: Card[];
   hasCalledUno: boolean;
   connected: boolean;
+  powerCards: PowerCard[];
+  powerPoints: number;
+  frozenForTurns: number;
 }
 
 interface Room {
@@ -152,7 +158,11 @@ export class RoomService {
     for (const player of room.players) {
       const hand = game.getHand(player.id);
       player.hand = hand;
+      player.powerCards = [];
+      player.powerPoints = 0;
+      player.frozenForTurns = 0;
       this.io.to(player.socketId).emit("gameStarted", publicState, { cards: hand });
+      this.syncPowerState(room, player.id);
     }
 
     this.emitLobby(room);
@@ -174,10 +184,14 @@ export class RoomService {
         roomPlayer.hasCalledUno = hand.length === 1;
       }
 
+      this.syncPowerState(room, socket.id);
+
       if (roomPlayer && hand.length === 1) {
         const payload: RushAlertPayload = { playerId: roomPlayer.id, playerName: roomPlayer.name };
         socket.broadcast.to(room.code).emit("rushAlert", payload);
       }
+
+      this.syncDirtyHands(room, [socket.id]);
 
       if (result.winnerId) {
         this.finishGame(room);
@@ -204,9 +218,80 @@ export class RoomService {
         roomPlayer.hasCalledUno = false;
       }
 
+      this.syncDirtyHands(room, [socket.id]);
       this.broadcastState(room);
     } catch (error) {
       this.emitError(socket, error instanceof Error ? error.message : "Unable to draw card");
+    }
+  }
+
+  handleDrawPowerCard(socket: UnoSocket) {
+    const room = this.getRoomForSocket(socket);
+    if (!room || !room.game) return;
+
+    try {
+      room.game.drawPowerCard(socket.id);
+      this.syncPowerState(room, socket.id);
+      this.syncDirtyHands(room, [socket.id]);
+      this.broadcastState(room);
+    } catch (error) {
+      this.emitError(socket, error instanceof Error ? error.message : "Unable to draw a power card");
+    }
+  }
+
+  handlePlayPowerCard(socket: UnoSocket, payload: PlayPowerCardPayload) {
+    const room = this.getRoomForSocket(socket);
+    if (!room || !room.game) return;
+
+    try {
+      const result = room.game.playPowerCard(socket.id, payload);
+
+      const actorHand = room.game.getHand(socket.id);
+      this.io.to(socket.id).emit("handUpdate", { cards: actorHand });
+
+      const roomPlayer = room.players.find((p) => p.id === socket.id);
+      if (roomPlayer) {
+        roomPlayer.hand = actorHand;
+        roomPlayer.hasCalledUno = actorHand.length === 1;
+      }
+
+      this.syncPowerState(room, socket.id);
+
+      const affectedIds = new Set(result.affectedPlayerIds);
+      for (const playerId of affectedIds) {
+        const hand = room.game.getHand(playerId);
+        this.io.to(playerId).emit("handUpdate", { cards: hand });
+
+        const affectedPlayer = room.players.find((p) => p.id === playerId);
+        if (affectedPlayer) {
+          affectedPlayer.hand = hand;
+          affectedPlayer.hasCalledUno = hand.length === 1;
+        }
+      }
+
+      this.syncDirtyHands(room, [socket.id, ...affectedIds]);
+
+      const rushCandidates = new Set<string>();
+      if (roomPlayer && roomPlayer.hand.length === 1) {
+        rushCandidates.add(roomPlayer.id);
+      }
+      for (const playerId of affectedIds) {
+        const affectedPlayer = room.players.find((p) => p.id === playerId);
+        if (affectedPlayer && affectedPlayer.hand.length === 1) {
+          rushCandidates.add(affectedPlayer.id);
+        }
+      }
+
+      for (const playerId of rushCandidates) {
+        const target = room.players.find((p) => p.id === playerId);
+        if (!target) continue;
+        const alert: RushAlertPayload = { playerId: target.id, playerName: target.name };
+        this.io.to(room.code).emit("rushAlert", alert);
+      }
+
+      this.broadcastState(room);
+    } catch (error) {
+      this.emitError(socket, error instanceof Error ? error.message : "Unable to play power card");
     }
   }
 
@@ -232,6 +317,10 @@ export class RoomService {
       for (const player of room.players) {
         player.hand = [];
         player.hasCalledUno = false;
+        player.powerCards = [];
+        player.powerPoints = 0;
+        player.frozenForTurns = 0;
+        this.io.to(player.id).emit("powerStateUpdate", { points: 0, cards: [], requiredDraws: 0 });
       }
       this.emitLobby(room);
     }
@@ -254,6 +343,10 @@ export class RoomService {
     for (const player of room.players) {
       player.hand = [];
       player.hasCalledUno = false;
+      player.powerCards = [];
+      player.powerPoints = 0;
+      player.frozenForTurns = 0;
+      this.io.to(player.id).emit("powerStateUpdate", { points: 0, cards: [], requiredDraws: 0 });
     }
     this.emitLobby(room);
   }
@@ -261,7 +354,46 @@ export class RoomService {
   private broadcastState(room: Room) {
     if (!room.game) return;
     const state = room.game.getPublicState(room.hostId);
+
+    for (const summary of state.players) {
+      const roomPlayer = room.players.find((player) => player.id === summary.id);
+      if (roomPlayer) {
+        roomPlayer.hasCalledUno = summary.hasCalledUno;
+        roomPlayer.powerPoints = summary.powerPoints;
+        roomPlayer.frozenForTurns = summary.frozenForTurns;
+      }
+    }
+
     this.io.to(room.code).emit("stateUpdate", state);
+  }
+
+  private syncPowerState(room: Room, playerId: string) {
+    if (!room.game) return;
+    const payload: PowerStatePayload = room.game.getPowerState(playerId);
+    const roomPlayer = room.players.find((player) => player.id === playerId);
+    if (roomPlayer) {
+      roomPlayer.powerCards = payload.cards;
+      roomPlayer.powerPoints = payload.points;
+    }
+    this.io.to(playerId).emit("powerStateUpdate", payload);
+  }
+
+  private syncDirtyHands(room: Room, excludeIds: string[] = []) {
+    if (!room.game) return;
+    const exclude = new Set(excludeIds);
+    const dirtyIds = room.game.consumePendingHandSyncs();
+
+    for (const playerId of dirtyIds) {
+      if (exclude.has(playerId)) continue;
+      const hand = room.game.getHand(playerId);
+      this.io.to(playerId).emit("handUpdate", { cards: hand });
+
+      const roomPlayer = room.players.find((player) => player.id === playerId);
+      if (roomPlayer) {
+        roomPlayer.hand = hand;
+        roomPlayer.hasCalledUno = hand.length === 1;
+      }
+    }
   }
 
   private createPlayer(socket: UnoSocket, name: string): RoomPlayer {
@@ -271,7 +403,10 @@ export class RoomService {
       socketId: socket.id,
       hand: [],
       hasCalledUno: false,
-      connected: true
+      connected: true,
+      powerCards: [],
+      powerPoints: 0,
+      frozenForTurns: 0
     };
   }
 
@@ -299,7 +434,10 @@ export class RoomService {
         name: player.name,
         isHost: player.id === room.hostId,
         cardCount: player.hand.length,
-        hasCalledUno: player.hasCalledUno
+        hasCalledUno: player.hasCalledUno,
+        powerCardCount: player.powerCards.length,
+        powerPoints: player.powerPoints,
+        frozenForTurns: player.frozenForTurns
       }))
     };
 

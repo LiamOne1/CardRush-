@@ -1,8 +1,8 @@
 import { nanoid } from "nanoid";
-import type { Card, CardColor } from "@code-card/shared";
+import type { Card, CardColor, PowerCard, PowerCardType } from "@code-card/shared";
 import * as Shared from "@code-card/shared";
 
-const { ACTION_CARD_VALUES, CARD_COLORS, NUMBER_CARD_VALUES } = Shared;
+const { ACTION_CARD_VALUES, CARD_COLORS, NUMBER_CARD_VALUES, POWER_CARD_TYPES } = Shared;
 
 export const buildDeck = (): Card[] => {
   const deck: Card[] = [];
@@ -24,6 +24,26 @@ export const buildDeck = (): Card[] => {
   for (let i = 0; i < 4; i += 1) {
     deck.push({ id: nanoid(), color: "wild", value: "wild" });
     deck.push({ id: nanoid(), color: "wild", value: "wild4" });
+  }
+
+  return shuffle(deck);
+};
+
+const POWER_CARD_DUPLICATES: Record<PowerCardType, number> = {
+  cardRush: 4,
+  freeze: 4,
+  colorRush: 4,
+  swapHands: 4
+};
+
+export const buildPowerDeck = (): PowerCard[] => {
+  const deck: PowerCard[] = [];
+
+  for (const type of POWER_CARD_TYPES) {
+    const copies = POWER_CARD_DUPLICATES[type] ?? 3;
+    for (let i = 0; i < copies; i += 1) {
+      deck.push({ id: nanoid(), type });
+    }
   }
 
   return shuffle(deck);

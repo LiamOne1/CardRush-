@@ -7,12 +7,15 @@ interface PlayerBadgeProps {
 }
 
 export const PlayerBadge: React.FC<PlayerBadgeProps> = ({ player, isActive }) => {
+  const isFrozen = player.frozenForTurns > 0;
+
   return (
     <div
       className={clsx(
         "flex w-full items-center justify-between rounded-xl border border-white/10 bg-gradient-to-r from-violet-500/10 via-sky-500/5 to-emerald-500/10 px-4 py-3 backdrop-blur",
         isActive &&
-          "border-white/60 bg-gradient-to-r from-fuchsia-500/30 via-purple-500/20 to-emerald-400/30 text-white shadow-lg shadow-fuchsia-500/25"
+          "border-white/60 bg-gradient-to-r from-fuchsia-500/30 via-purple-500/20 to-emerald-400/30 text-white shadow-lg shadow-fuchsia-500/25",
+        isFrozen && "border-cyan-300/60"
       )}
     >
       <div className="flex items-center gap-3">
@@ -26,10 +29,25 @@ export const PlayerBadge: React.FC<PlayerBadgeProps> = ({ player, isActive }) =>
           </span>
         </div>
       </div>
-      <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
+      <div className="flex flex-wrap items-center justify-end gap-2 text-xs uppercase tracking-wide text-white/70">
         {player.isHost && <span className="rounded bg-white/20 px-2 py-1 text-slate-900">Host</span>}
         {player.hasCalledUno && (
           <span className="rounded bg-amber-400/90 px-2 py-1 text-amber-950 shadow shadow-amber-500/40">RUSH!</span>
+        )}
+        {player.powerCardCount > 0 && (
+          <span className="rounded bg-sky-500/20 px-2 py-1 text-sky-200">
+            ⚡ {player.powerCardCount}
+          </span>
+        )}
+        {player.powerPoints > 0 && (
+          <span className="rounded bg-emerald-500/20 px-2 py-1 text-emerald-200">
+            {player.powerPoints} pts
+          </span>
+        )}
+        {player.frozenForTurns > 0 && (
+          <span className="rounded bg-cyan-500/20 px-2 py-1 text-cyan-100">
+            Frozen {player.frozenForTurns}
+          </span>
         )}
       </div>
     </div>

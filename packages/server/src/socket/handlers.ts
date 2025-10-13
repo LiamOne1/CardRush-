@@ -35,6 +35,14 @@ export const registerSocketHandlers = (io: UnoServer) => {
       roomService.handleDrawCard(socket);
     });
 
+    socket.on("drawPowerCard", () => {
+      roomService.handleDrawPowerCard(socket);
+    });
+
+    socket.on("playPowerCard", (payload) => {
+      roomService.handlePlayPowerCard(socket, payload);
+    });
+
     socket.on("leaveRoom", () => {
       roomService.leaveRoom(socket);
     });

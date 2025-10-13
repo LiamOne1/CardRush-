@@ -4,6 +4,8 @@ import type {
   LobbyState,
   PlayerSummary,
   PublicGameState,
+  PowerCard,
+  PowerStatePayload,
   RushAlertPayload
 } from "@code-card/shared";
 import { CARD_COLORS } from "@code-card/shared";
@@ -17,6 +19,11 @@ interface GameEndedData {
 }
 
 const initialHandState: Card[] = [];
+const initialPowerState: PowerStatePayload = {
+  points: 0,
+  cards: [],
+  requiredDraws: 0
+};
 
 const usePhasedState = () => {
   const [phase, setPhase] = useState<"landing" | "lobby" | "game" | "ended">("landing");
@@ -34,24 +41,70 @@ const formatScoreboard = (players: PlayerSummary[], scores: Record<string, numbe
     .sort((a, b) => b.score - a.score);
 };
 
+const POWER_CARD_INFO: Record<PowerCard["type"], { label: string; description: string }> = {
+  cardRush: {
+    label: "Card Rush",
+    description: "All opponents draw two cards."
+  },
+  freeze: {
+    label: "Freeze",
+    description: "Skip a player's next two turns."
+  },
+  colorRush: {
+    label: "Color Rush",
+    description: "Shuffle every card of one color from your hand back into the deck."
+  },
+  swapHands: {
+    label: "Swap Hands",
+    description: "Trade your hand with any player you choose."
+  }
+};
+
 const GameBoard: React.FC<{
   gameState: PublicGameState;
   hand: Card[];
-  canPlay: boolean;
+  canPlayBase: boolean;
+  canDrawBase: boolean;
   onPlay: (card: Card, color?: typeof CARD_COLORS[number]) => void;
   onDraw: () => void;
   isResolvingWild: boolean;
   onResolveWild: (color: typeof CARD_COLORS[number]) => void;
+  powerState: PowerStatePayload;
+  onPowerCardSelect: (card: PowerCard) => void;
+  onPowerCardDraw: () => void;
+  mustDrawPower: boolean;
+  localPlayerId: string | null;
 }> = ({
   gameState,
   hand,
-  canPlay,
+  canPlayBase,
+  canDrawBase,
   onPlay,
   onDraw,
   isResolvingWild,
-  onResolveWild
+  onResolveWild,
+  powerState,
+  onPowerCardSelect,
+  onPowerCardDraw,
+  mustDrawPower,
+  localPlayerId
 }) => {
-  const { discardTop, currentPlayerId, currentColor, players, drawStack } = gameState;
+  const {
+    discardTop,
+    currentPlayerId,
+    currentColor,
+    players,
+    drawStack,
+    pendingPowerDrawPlayerId
+  } = gameState;
+
+  const awaitingPlayer = pendingPowerDrawPlayerId
+    ? players.find((player) => player.id === pendingPowerDrawPlayerId)
+    : null;
+  const remainder = powerState.points % 4;
+  const pointsUntilNext =
+    powerState.points >= 4 ? 0 : 4 - (remainder === 0 ? powerState.points : remainder);
+  const canPlayPowerCard = canPlayBase && !mustDrawPower;
 
   return (
     <div className="flex h-full flex-col gap-8">
@@ -76,10 +129,76 @@ const GameBoard: React.FC<{
           <button
             type="button"
             onClick={onDraw}
-            className="rounded-full bg-gradient-to-r from-rose-500 via-amber-400 to-emerald-400 px-8 py-3 text-sm font-semibold uppercase tracking-[0.4em] text-slate-900 shadow-lg shadow-rose-500/30 transition hover:brightness-105"
+            disabled={!canDrawBase}
+            className="rounded-full bg-gradient-to-r from-rose-500 via-amber-400 to-emerald-400 px-8 py-3 text-sm font-semibold uppercase tracking-[0.4em] text-slate-900 shadow-lg shadow-rose-500/30 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Draw Card
           </button>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-white/10 bg-slate-900/40 p-6 text-white backdrop-blur">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-display text-xl uppercase tracking-[0.4em]">Power Meter</h2>
+            <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+              {powerState.points} pts total
+            </p>
+          </div>
+          <div className="text-xs uppercase tracking-[0.3em] text-white/70">
+            {powerState.points >= 4 || powerState.requiredDraws > 0
+              ? "Ready to draw a Power Card"
+              : `${4 - powerState.points} pts until next Power Card`}
+          </div>
+        </div>
+
+        {awaitingPlayer && (
+          <p className="mt-3 rounded-xl border border-amber-300/40 bg-amber-500/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.3em] text-amber-200">
+            {awaitingPlayer.id === localPlayerId
+              ? `Draw ${powerState.requiredDraws} Power Card${powerState.requiredDraws > 1 ? "s" : ""} to continue`
+              : `Waiting for ${awaitingPlayer.name} to draw a Power Card`}
+          </p>
+        )}
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          {powerState.cards.length === 0 && (
+            <p className="text-sm text-white/60">No power cards collected yet.</p>
+          )}
+          {powerState.cards.map((card) => {
+            const info = POWER_CARD_INFO[card.type];
+            return (
+              <button
+                key={card.id}
+                type="button"
+                disabled={!canPlayPowerCard}
+                onClick={() => onPowerCardSelect(card)}
+                className="flex w-full flex-col gap-1 rounded-2xl border border-white/15 bg-slate-800/60 p-4 text-left shadow-inner transition hover:border-emerald-300/60 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40 sm:w-64"
+              >
+                <span className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-200">
+                  {info.label}
+                </span>
+                <span className="text-xs text-white/70">{info.description}</span>
+                <span className="text-[10px] uppercase tracking-[0.4em] text-white/50">Play</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={onPowerCardDraw}
+            disabled={!mustDrawPower}
+            className="rounded-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-sky-400 px-5 py-2 text-xs font-semibold uppercase tracking-[0.4em] text-slate-900 transition disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40"
+          >
+            Draw Power Card
+            {powerState.requiredDraws > 1 ? ` (${powerState.requiredDraws}x)` : ""}
+          </button>
+          {!mustDrawPower && pointsUntilNext > 0 && (
+            <span className="text-[11px] uppercase tracking-[0.3em] text-white/50">
+              {pointsUntilNext} pts to unlock
+            </span>
+          )}
         </div>
       </section>
 
@@ -87,7 +206,11 @@ const GameBoard: React.FC<{
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-xl uppercase tracking-[0.4em] text-white">Your Hand</h2>
           <p className="text-xs uppercase tracking-[0.5em] text-white/70">
-            {canPlay ? "Your turn" : "Waiting for opponents"}
+            {mustDrawPower
+              ? "Draw a Power Card to continue"
+              : canPlayBase
+              ? "Your turn"
+              : "Waiting for opponents"}
           </p>
         </div>
         <div className="flex flex-wrap gap-4">
@@ -95,9 +218,9 @@ const GameBoard: React.FC<{
             <UnoCard
               key={card.id}
               card={card}
-              disabled={!canPlay}
+              disabled={!canPlayBase}
               onSelect={(selected) => {
-                if (!canPlay) return;
+                if (!canPlayBase) return;
                 if (isWildCard(selected)) {
                   onPlay(selected);
                 } else {
@@ -299,6 +422,10 @@ const App: React.FC = () => {
   const [lobbyState, setLobbyState] = useState<LobbyState | null>(null);
   const [gameState, setGameState] = useState<PublicGameState | null>(null);
   const [hand, setHand] = useState<Card[]>(initialHandState);
+  const [powerState, setPowerState] = useState<PowerStatePayload>(initialPowerState);
+  const [pendingPowerAction, setPendingPowerAction] = useState<{ card: PowerCard; mode: "target" | "color" } | null>(
+    null
+  );
   const [pendingWild, setPendingWild] = useState<Card | null>(null);
   const [lastError, setLastError] = useState<string | undefined>();
   const [endState, setEndState] = useState<GameEndedData | null>(null);
@@ -319,6 +446,8 @@ const App: React.FC = () => {
         if (prev === "game" && state.status === "waiting") {
           setGameState(null);
           setHand(initialHandState);
+          setPowerState(initialPowerState);
+          setPendingPowerAction(null);
           return "lobby";
         }
         return prev;
@@ -328,6 +457,8 @@ const App: React.FC = () => {
       setGameState(state);
       setHand(handPayload.cards);
       setPendingWild(null);
+       setPowerState(initialPowerState);
+       setPendingPowerAction(null);
       setEndState(null);
       setPhase("game");
     };
@@ -337,12 +468,17 @@ const App: React.FC = () => {
     const handleHandUpdate = (payload: { cards: Card[] }) => {
       setHand(payload.cards);
     };
+    const handlePowerStateUpdate = (payload: PowerStatePayload) => {
+      setPowerState(payload);
+    };
     const handleError = (payload: { message: string }) => {
       setLastError(payload.message);
       setTimeout(() => setLastError(undefined), 4000);
     };
     const handleGameEnded = (payload: GameEndedData) => {
       setEndState(payload);
+      setPowerState(initialPowerState);
+      setPendingPowerAction(null);
       setPhase("ended");
     };
     const handleRushAlert = (payload: RushAlertPayload) => {
@@ -358,6 +494,7 @@ const App: React.FC = () => {
     socket.on("gameStarted", handleGameStarted);
     socket.on("stateUpdate", handleStateUpdate);
     socket.on("handUpdate", handleHandUpdate);
+    socket.on("powerStateUpdate", handlePowerStateUpdate);
     socket.on("error", handleError);
     socket.on("gameEnded", handleGameEnded);
     socket.on("rushAlert", handleRushAlert);
@@ -368,6 +505,7 @@ const App: React.FC = () => {
       socket.off("gameStarted", handleGameStarted);
       socket.off("stateUpdate", handleStateUpdate);
       socket.off("handUpdate", handleHandUpdate);
+      socket.off("powerStateUpdate", handlePowerStateUpdate);
       socket.off("error", handleError);
       socket.off("gameEnded", handleGameEnded);
       socket.off("rushAlert", handleRushAlert);
@@ -388,6 +526,33 @@ const App: React.FC = () => {
     return gameState.currentPlayerId === playerId;
   }, [gameState, playerId]);
 
+  const mustDrawPower = useMemo(() => {
+    if (!gameState || !playerId) return false;
+    return (
+      gameState.pendingPowerDrawPlayerId === playerId &&
+      powerState.requiredDraws > 0
+    );
+  }, [gameState, playerId, powerState.requiredDraws]);
+
+  const canPlayBase = canPlay && !mustDrawPower;
+  const canDrawBase = canPlay && !mustDrawPower;
+
+  const availableTargets = useMemo(() => {
+    if (!gameState || !playerId) return [];
+    return gameState.players.filter((player) => player.id !== playerId);
+  }, [gameState, playerId]);
+
+  const selectableColors = useMemo(() => {
+    if (!pendingPowerAction || pendingPowerAction.mode !== "color") return [];
+    const colors = new Set<typeof CARD_COLORS[number]>();
+    for (const card of hand) {
+      if (card.color !== "wild") {
+        colors.add(card.color as typeof CARD_COLORS[number]);
+      }
+    }
+    return CARD_COLORS.filter((color) => colors.has(color));
+  }, [pendingPowerAction, hand]);
+
   const handleCreateRoom = () => {
     if (!name.trim()) {
       setLastError("Enter a display name first");
@@ -407,7 +572,10 @@ const App: React.FC = () => {
             name: name.trim(),
             isHost: true,
             cardCount: 0,
-            hasCalledUno: false
+            hasCalledUno: false,
+            powerCardCount: 0,
+            powerPoints: 0,
+            frozenForTurns: 0
           }
         ]
       });
@@ -441,6 +609,9 @@ const App: React.FC = () => {
     setLobbyState(null);
     setGameState(null);
     setHand(initialHandState);
+    setPowerState(initialPowerState);
+    setPendingPowerAction(null);
+    setPendingWild(null);
     setEndState(null);
     setRoomCode("");
     setRushNotice(null);
@@ -471,11 +642,52 @@ const App: React.FC = () => {
     handlePlayCard(pendingWild, color);
   };
 
+  const handleDrawPowerCard = () => {
+    socket.emit("drawPowerCard");
+  };
+
+  const handlePowerCardIntent = (card: PowerCard) => {
+    if (!gameState) return;
+    switch (card.type) {
+      case "cardRush":
+        socket.emit("playPowerCard", { cardId: card.id });
+        break;
+      case "freeze":
+      case "swapHands":
+        setPendingPowerAction({ card, mode: "target" });
+        break;
+      case "colorRush":
+        setPendingPowerAction({ card, mode: "color" });
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handlePowerTargetSelect = (targetId: string) => {
+    if (!pendingPowerAction) return;
+    socket.emit("playPowerCard", { cardId: pendingPowerAction.card.id, targetPlayerId: targetId });
+    setPendingPowerAction(null);
+  };
+
+  const handlePowerColorSelect = (color: typeof CARD_COLORS[number]) => {
+    if (!pendingPowerAction) return;
+    socket.emit("playPowerCard", { cardId: pendingPowerAction.card.id, color });
+    setPendingPowerAction(null);
+  };
+
+  const handleCancelPowerAction = () => {
+    setPendingPowerAction(null);
+  };
+
   const handleReplay = () => {
     setEndState(null);
     setPhase("lobby");
     setGameState(null);
     setHand(initialHandState);
+    setPowerState(initialPowerState);
+    setPendingPowerAction(null);
+    setPendingWild(null);
     setRushNotice(null);
   };
 
@@ -500,15 +712,83 @@ const App: React.FC = () => {
           <GameBoard
             gameState={gameState}
             hand={hand}
-            canPlay={canPlay}
+            canPlayBase={canPlayBase}
+            canDrawBase={canDrawBase}
             onPlay={handlePlayCard}
             onDraw={handleDrawCard}
             isResolvingWild={Boolean(pendingWild)}
             onResolveWild={handleResolveWild}
+            powerState={powerState}
+            onPowerCardSelect={handlePowerCardIntent}
+            onPowerCardDraw={handleDrawPowerCard}
+            mustDrawPower={mustDrawPower}
+            localPlayerId={playerId}
           />
         )}
         {phase === "ended" && endState && lobbyState && (
           <GameOverPanel data={endState} players={lobbyState.players} onPlayAgain={handleReplay} />
+        )}
+        {pendingPowerAction && gameState && (
+          <section className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+            <div className="w-80 rounded-3xl bg-slate-900 p-6 text-center shadow-2xl">
+              <h3 className="text-lg font-semibold uppercase tracking-widest text-white/80">
+                {POWER_CARD_INFO[pendingPowerAction.card.type].label}
+              </h3>
+              <p className="mb-4 text-xs text-white/60">
+                {POWER_CARD_INFO[pendingPowerAction.card.type].description}
+              </p>
+              {pendingPowerAction.mode === "target" ? (
+                availableTargets.length > 0 ? (
+                  <div className="space-y-2">
+                    {availableTargets.map((target) => (
+                      <button
+                        key={target.id}
+                        type="button"
+                        onClick={() => handlePowerTargetSelect(target.id)}
+                        className="w-full rounded-xl border border-white/15 bg-slate-800/70 px-4 py-2 text-sm font-semibold uppercase tracking-[0.3em] text-white transition hover:border-emerald-300/60 hover:bg-slate-800"
+                      >
+                        {target.name} · {target.cardCount} card{target.cardCount === 1 ? "" : "s"}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-white/60">No available targets right now.</p>
+                )
+              ) : selectableColors.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {selectableColors.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      className="rounded-xl px-4 py-3 text-sm font-semibold uppercase tracking-widest text-slate-950"
+                      style={{
+                        backgroundColor:
+                          color === "yellow"
+                            ? "#ffd93d"
+                            : color === "blue"
+                            ? "#2196f3"
+                            : color === "red"
+                            ? "#ff4d4d"
+                            : "#4caf50"
+                      }}
+                      onClick={() => handlePowerColorSelect(color)}
+                    >
+                      {color}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-white/60">No matching colors in hand.</p>
+              )}
+              <button
+                type="button"
+                onClick={handleCancelPowerAction}
+                className="mt-5 w-full rounded-xl border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.4em] text-white transition hover:bg-white/10"
+              >
+                Cancel
+              </button>
+            </div>
+          </section>
         )}
       </main>
       {lastError && phase !== "landing" && (

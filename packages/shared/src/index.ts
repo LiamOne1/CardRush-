@@ -5,11 +5,17 @@ export type CardColor = "red" | "yellow" | "green" | "blue" | "wild";
 export type ActionCardValue = "skip" | "reverse" | "draw2" | "wild" | "wild4";
 export type NumberCardValue = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
 export type CardValue = NumberCardValue | ActionCardValue;
+export type PowerCardType = "cardRush" | "freeze" | "colorRush" | "swapHands";
 
 export interface Card {
   id: string;
   color: CardColor;
   value: CardValue;
+}
+
+export interface PowerCard {
+  id: string;
+  type: PowerCardType;
 }
 
 export interface PlayerSummary {
@@ -18,6 +24,9 @@ export interface PlayerSummary {
   isHost: boolean;
   cardCount: number;
   hasCalledUno: boolean;
+  powerCardCount: number;
+  powerPoints: number;
+  frozenForTurns: number;
 }
 
 export interface RushAlertPayload {
@@ -41,6 +50,7 @@ export interface PublicGameState {
   currentColor: CardColor;
   drawStack: number;
   startedAt: string;
+  pendingPowerDrawPlayerId: PlayerId | null;
 }
 
 export interface HandUpdate {
@@ -56,6 +66,12 @@ export interface ErrorPayload {
   message: string;
 }
 
+export interface PowerStatePayload {
+  points: number;
+  cards: PowerCard[];
+  requiredDraws: number;
+}
+
 export interface ServerToClientEvents {
   lobbyUpdate: (state: LobbyState) => void;
   gameStarted: (state: PublicGameState, hand: HandUpdate) => void;
@@ -64,6 +80,7 @@ export interface ServerToClientEvents {
   error: (payload: ErrorPayload) => void;
   gameEnded: (payload: GameEndedPayload) => void;
   rushAlert: (payload: RushAlertPayload) => void;
+  powerStateUpdate: (payload: PowerStatePayload) => void;
 }
 
 export interface JoinRoomPayload {
@@ -76,12 +93,20 @@ export interface PlayCardPayload {
   chosenColor?: Exclude<CardColor, "wild">;
 }
 
+export interface PlayPowerCardPayload {
+  cardId: string;
+  targetPlayerId?: PlayerId;
+  color?: Exclude<CardColor, "wild">;
+}
+
 export interface ClientToServerEvents {
   createRoom: (name: string, callback: (roomCode: RoomCode) => void) => void;
   joinRoom: (payload: JoinRoomPayload, callback: (success: boolean, message?: string) => void) => void;
   startGame: () => void;
   playCard: (payload: PlayCardPayload) => void;
   drawCard: () => void;
+  drawPowerCard: () => void;
+  playPowerCard: (payload: PlayPowerCardPayload) => void;
   leaveRoom: () => void;
 }
 
@@ -119,4 +144,11 @@ export const ACTION_CARD_VALUES: ActionCardValue[] = [
   "draw2",
   "wild",
   "wild4"
+];
+
+export const POWER_CARD_TYPES: PowerCardType[] = [
+  "cardRush",
+  "freeze",
+  "colorRush",
+  "swapHands"
 ];
