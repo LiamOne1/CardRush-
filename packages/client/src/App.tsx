@@ -60,6 +60,33 @@ const POWER_CARD_INFO: Record<PowerCard["type"], { label: string; description: s
   }
 };
 
+const PowerCardToken: React.FC<{
+  info: { label: string; description: string };
+  card: PowerCard;
+  disabled: boolean;
+  onSelect: (card: PowerCard) => void;
+}> = ({ info, card, disabled, onSelect }) => {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(card)}
+      disabled={disabled}
+      className={`relative flex h-36 w-24 flex-shrink-0 flex-col justify-between rounded-2xl border border-emerald-200/40 bg-gradient-to-br from-emerald-500/25 via-cyan-500/15 to-sky-500/30 p-4 text-left shadow-lg shadow-emerald-500/25 transition ${
+        disabled
+          ? "cursor-not-allowed opacity-40"
+          : "cursor-pointer hover:-translate-y-1 hover:border-emerald-200/70 hover:shadow-emerald-400/40"
+      }`}
+    >
+      <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.25),_transparent_65%)]" />
+      <span className="relative text-xs font-semibold uppercase tracking-[0.35em] text-emerald-100">
+        {info.label}
+      </span>
+      <span className="relative text-[10px] leading-4 text-white/75">{info.description}</span>
+      <span className="relative self-end text-[10px] uppercase tracking-[0.4em] text-emerald-200">Play</span>
+    </button>
+  );
+};
+
 const GameBoard: React.FC<{
   gameState: PublicGameState;
   hand: Card[];
@@ -101,9 +128,26 @@ const GameBoard: React.FC<{
   const awaitingPlayer = pendingPowerDrawPlayerId
     ? players.find((player) => player.id === pendingPowerDrawPlayerId)
     : null;
-  const remainder = powerState.points % 4;
+  const POWER_CARD_COST = 4;
+  const remainder = powerState.points % POWER_CARD_COST;
+  const readyPowerDraws = Math.floor(powerState.points / POWER_CARD_COST);
   const pointsUntilNext =
-    powerState.points >= 4 ? 0 : 4 - (remainder === 0 ? powerState.points : remainder);
+    readyPowerDraws > 0 ? 0 : POWER_CARD_COST - (remainder === 0 ? powerState.points : remainder);
+  const baseProgress = readyPowerDraws > 0 ? 1 : remainder / POWER_CARD_COST;
+  const progress = mustDrawPower ? 1 : baseProgress;
+  const progressPercentage = Math.min(1, progress) * 100;
+  const isMeterCharged = progress >= 1;
+  const progressPointsDisplay =
+    readyPowerDraws > 0 || mustDrawPower ? POWER_CARD_COST : remainder;
+  const drawCountDisplay =
+    powerState.requiredDraws > 0 ? powerState.requiredDraws : readyPowerDraws;
+  const powerStatusLabel = mustDrawPower
+    ? powerState.requiredDraws > 1
+      ? `Draw ${powerState.requiredDraws} power cards`
+      : "Draw a power card to continue"
+    : readyPowerDraws > 0
+    ? `${readyPowerDraws} power card${readyPowerDraws > 1 ? "s" : ""} ready`
+    : `${pointsUntilNext} pts to unlock`;
   const canPlayPowerCard = canPlayBase && !mustDrawPower;
 
   return (
@@ -137,68 +181,59 @@ const GameBoard: React.FC<{
         </div>
       </section>
 
-      <section className="flex flex-col rounded-3xl border border-white/10 bg-slate-900/40 px-5 py-4 text-white backdrop-blur">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="font-display text-xl uppercase tracking-[0.4em]">Power Meter</h2>
-            <p className="text-xs uppercase tracking-[0.3em] text-white/60">
-              {powerState.points} pts total
+      <section
+        className={`rounded-3xl border border-white/10 bg-slate-900/40 px-5 py-4 text-white backdrop-blur ${
+          isMeterCharged ? "border-emerald-300/60 shadow-[0_0_25px_rgba(16,185,129,0.35)]" : ""
+        }`}
+      >
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-display text-xl uppercase tracking-[0.4em]">Power Meter</h2>
+              <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+                {powerState.points} pts total
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onPowerCardDraw}
+              disabled={!mustDrawPower}
+              className="rounded-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-sky-400 px-5 py-2 text-xs font-semibold uppercase tracking-[0.4em] text-slate-900 transition disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40"
+            >
+              Draw Power Card
+              {drawCountDisplay > 1 ? ` (${drawCountDisplay}x)` : ""}
+            </button>
+          </div>
+
+          {awaitingPlayer && (
+            <p className="rounded-xl border border-amber-300/40 bg-amber-500/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.3em] text-amber-200">
+              {awaitingPlayer.id === localPlayerId
+                ? `Draw ${powerState.requiredDraws} Power Card${powerState.requiredDraws > 1 ? "s" : ""} to continue`
+                : `Waiting for ${awaitingPlayer.name} to draw a Power Card`}
             </p>
-          </div>
-          <div className="text-xs uppercase tracking-[0.3em] text-white/70">
-            {powerState.points >= 4 || powerState.requiredDraws > 0
-              ? "Ready to draw a Power Card"
-              : `${4 - powerState.points} pts until next Power Card`}
-          </div>
-        </div>
-
-        {awaitingPlayer && (
-          <p className="mt-3 rounded-xl border border-amber-300/40 bg-amber-500/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.3em] text-amber-200">
-            {awaitingPlayer.id === localPlayerId
-              ? `Draw ${powerState.requiredDraws} Power Card${powerState.requiredDraws > 1 ? "s" : ""} to continue`
-              : `Waiting for ${awaitingPlayer.name} to draw a Power Card`}
-          </p>
-        )}
-
-        <div className="mt-3 flex flex-wrap gap-3">
-          {powerState.cards.length === 0 && (
-            <p className="text-sm text-white/60">No power cards collected yet.</p>
           )}
-          {powerState.cards.map((card) => {
-            const info = POWER_CARD_INFO[card.type];
-            return (
-              <button
-                key={card.id}
-                type="button"
-                disabled={!canPlayPowerCard}
-                onClick={() => onPowerCardSelect(card)}
-                className="flex w-full flex-col gap-1 rounded-2xl border border-white/15 bg-slate-800/60 p-4 text-left shadow-inner transition hover:border-emerald-300/60 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40 sm:w-64"
-              >
-                <span className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-200">
-                  {info.label}
-                </span>
-                <span className="text-xs text-white/70">{info.description}</span>
-                <span className="text-[10px] uppercase tracking-[0.4em] text-white/50">Play</span>
-              </button>
-            );
-          })}
-        </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={onPowerCardDraw}
-            disabled={!mustDrawPower}
-            className="rounded-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-sky-400 px-5 py-2 text-xs font-semibold uppercase tracking-[0.4em] text-slate-900 transition disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40"
-          >
-            Draw Power Card
-            {powerState.requiredDraws > 1 ? ` (${powerState.requiredDraws}x)` : ""}
-          </button>
-          {!mustDrawPower && pointsUntilNext > 0 && (
-            <span className="text-[11px] uppercase tracking-[0.3em] text-white/50">
-              {pointsUntilNext} pts to unlock
+          <div className="h-3 w-full overflow-hidden rounded-full bg-white/10">
+            <div
+              className={`h-full rounded-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-sky-500 transition-all duration-500 ${
+                mustDrawPower ? "animate-pulse" : ""
+              }`}
+              style={{
+                width: `${progressPercentage}%`,
+                boxShadow:
+                  progressPercentage > 0
+                    ? `0 0 ${isMeterCharged ? 28 : 16}px rgba(16, 185, 129, ${isMeterCharged ? 0.45 : 0.25})`
+                    : "none"
+              }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.3em] text-white/60">
+            <span>{powerStatusLabel}</span>
+            <span>
+              {progressPointsDisplay}/{POWER_CARD_COST} pts
             </span>
-          )}
+          </div>
         </div>
       </section>
 
@@ -214,6 +249,15 @@ const GameBoard: React.FC<{
           </p>
         </div>
         <div className="flex flex-wrap gap-4">
+          {powerState.cards.map((card) => (
+            <PowerCardToken
+              key={card.id}
+              card={card}
+              info={POWER_CARD_INFO[card.type]}
+              disabled={!canPlayPowerCard}
+              onSelect={onPowerCardSelect}
+            />
+          ))}
           {hand.map((card) => (
             <UnoCard
               key={card.id}
@@ -229,7 +273,9 @@ const GameBoard: React.FC<{
               }}
             />
           ))}
-          {hand.length === 0 && <p className="text-sm text-white/60">No cards in hand.</p>}
+          {hand.length === 0 && powerState.cards.length === 0 && (
+            <p className="text-sm text-white/60">No cards in hand.</p>
+          )}
         </div>
       </section>
 
