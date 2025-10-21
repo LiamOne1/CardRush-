@@ -107,14 +107,14 @@ const GameBoard: React.FC<{
   const canPlayPowerCard = canPlayBase && !mustDrawPower;
 
   return (
-    <div className="flex h-full flex-col gap-8">
+    <div className="flex h-full flex-col gap-6">
       <section className="grid grid-cols-1 gap-4 rounded-3xl border border-white/10 bg-slate-900/30 p-4 backdrop-blur sm:grid-cols-2">
         {players.map((player) => (
           <PlayerBadge key={player.id} player={player} isActive={player.id === currentPlayerId} />
         ))}
       </section>
 
-      <section className="relative flex flex-1 flex-col items-center justify-center gap-8 overflow-hidden rounded-[2.25rem] border border-white/15 bg-gradient-to-br from-cyan-500/20 via-indigo-500/15 to-fuchsia-500/20 p-8 text-white shadow-[0_0_45px_rgba(96,165,250,0.25)] backdrop-blur-lg">
+      <section className="relative flex flex-col items-center justify-center gap-6 overflow-hidden rounded-[2.25rem] border border-white/15 bg-gradient-to-br from-cyan-500/20 via-indigo-500/15 to-fuchsia-500/20 p-6 text-white shadow-[0_0_45px_rgba(96,165,250,0.25)] backdrop-blur-lg">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.18),_transparent_55%)]" />
         <div className="flex flex-col items-center gap-3 text-center">
           <p className="text-xs uppercase tracking-[0.5em] text-white/60">Discard</p>
@@ -125,7 +125,7 @@ const GameBoard: React.FC<{
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onDraw}
@@ -137,7 +137,7 @@ const GameBoard: React.FC<{
         </div>
       </section>
 
-      <section className="rounded-3xl border border-white/10 bg-slate-900/40 p-6 text-white backdrop-blur">
+      <section className="flex flex-col rounded-3xl border border-white/10 bg-slate-900/40 px-5 py-4 text-white backdrop-blur">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="font-display text-xl uppercase tracking-[0.4em]">Power Meter</h2>
@@ -160,7 +160,7 @@ const GameBoard: React.FC<{
           </p>
         )}
 
-        <div className="mt-4 flex flex-wrap gap-3">
+        <div className="mt-3 flex flex-wrap gap-3">
           {powerState.cards.length === 0 && (
             <p className="text-sm text-white/60">No power cards collected yet.</p>
           )}
@@ -184,7 +184,7 @@ const GameBoard: React.FC<{
           })}
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-3">
+        <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={onPowerCardDraw}

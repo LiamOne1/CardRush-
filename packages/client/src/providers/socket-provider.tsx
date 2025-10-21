@@ -28,6 +28,11 @@ const resolveServerUrl = () => {
     return `${protocol}//${hostname}:${import.meta.env.VITE_SERVER_PORT}`;
   }
 
+  if (import.meta.env.DEV) {
+    const { protocol, hostname } = window.location;
+    return `${protocol}//${hostname}:4000`;
+  }
+
   return window.location.origin;
 };
 

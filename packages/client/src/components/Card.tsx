@@ -32,7 +32,7 @@ export const UnoCard: React.FC<CardProps> = ({ card, disabled, onSelect }) => {
       disabled={disabled}
       onClick={() => onSelect?.(card)}
       className={clsx(
-        "relative h-36 w-24 rounded-xl border-4 border-white/40 p-3 text-center shadow-lg transition",
+        "relative h-36 w-24 flex-shrink-0 rounded-xl border-4 border-white/40 p-3 text-center shadow-lg transition",
         disabled
           ? "cursor-not-allowed opacity-40"
           : "cursor-pointer hover:-translate-y-1 hover:shadow-xl",
