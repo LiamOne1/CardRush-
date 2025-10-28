@@ -5,6 +5,7 @@ import type {
   ClientToServerEvents,
   ServerToClientEvents
 } from "@code-card/shared";
+import { useAuth } from "./auth-provider";
 
 type UnoSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -38,13 +39,15 @@ const resolveServerUrl = () => {
 
 export const SocketProvider = ({ children }: SocketProviderProps) => {
   const [socket, setSocket] = useState<UnoSocket | null>(null);
+  const { token } = useAuth();
 
   const serverUrl = useMemo(resolveServerUrl, []);
 
   useEffect(() => {
     const instance: UnoSocket = io(serverUrl, {
       transports: ["websocket"],
-      autoConnect: true
+      autoConnect: true,
+      auth: token ? { token } : undefined
     });
 
     setSocket(instance);
@@ -53,6 +56,11 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
       instance.disconnect();
     };
   }, [serverUrl]);
+
+  useEffect(() => {
+    if (!socket) return;
+    socket.emit("updateAuth", { token: token ?? null });
+  }, [socket, token]);
 
   const value = useMemo(() => socket, [socket]);
 

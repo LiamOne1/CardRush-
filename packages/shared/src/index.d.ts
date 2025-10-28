@@ -92,6 +92,9 @@ export interface ClientToServerEvents {
     drawPowerCard: () => void;
     playPowerCard: (payload: PlayPowerCardPayload) => void;
     leaveRoom: () => void;
+    updateAuth: (payload: {
+        token: string | null;
+    }) => void;
 }
 export interface InterServerEvents {
 }
@@ -99,6 +102,7 @@ export interface SocketData {
     playerId: PlayerId;
     roomCode?: RoomCode;
     name?: string;
+    userId?: string;
 }
 export declare const CARD_COLORS: Exclude<CardColor, "wild">[];
 export declare const NUMBER_CARD_VALUES: NumberCardValue[];

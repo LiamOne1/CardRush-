@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import type {
   Card,
   LobbyState,
@@ -11,6 +12,7 @@ import type {
 import { CARD_COLORS } from "@code-card/shared";
 import { UnoCard } from "./components/Card";
 import { PlayerBadge } from "./components/PlayerBadge";
+import { useAuth, type AuthUser } from "./providers/auth-provider";
 import { useSocket } from "./providers/socket-provider";
 
 interface GameEndedData {
@@ -84,6 +86,240 @@ const PowerCardToken: React.FC<{
       <span className="relative text-[10px] leading-4 text-white/75">{info.description}</span>
       <span className="relative self-end text-[10px] uppercase tracking-[0.4em] text-emerald-200">Play</span>
     </button>
+  );
+};
+
+interface AccountPanelProps {
+  user: AuthUser | null;
+  initializing: boolean;
+  onLogin: (payload: { email: string; password: string }) => Promise<{ success: boolean; error?: string }>;
+  onRegister: (payload: { email: string; password: string; displayName: string }) => Promise<{ success: boolean; error?: string }>;
+  onLogout: () => void;
+  showExpanded: boolean;
+}
+
+const AccountPanel: React.FC<AccountPanelProps> = ({ user, initializing, onLogin, onRegister, onLogout, showExpanded }) => {
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [expanded, setExpanded] = useState(showExpanded);
+  const previousShowExpanded = useRef(showExpanded);
+
+  useEffect(() => {
+    if (user) {
+      setExpanded(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (showExpanded && !previousShowExpanded.current && !user) {
+      setExpanded(true);
+    }
+    previousShowExpanded.current = showExpanded;
+  }, [showExpanded, user]);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setStatus(null);
+
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+    if (!trimmedEmail || !trimmedPassword) {
+      setStatus("Email and password are required.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (mode === "register" && displayName.trim().length < 2) {
+      setStatus("Display name must be at least 2 characters.");
+      setSubmitting(false);
+      return;
+    }
+
+    const result =
+      mode === "login"
+        ? await onLogin({ email: trimmedEmail, password: trimmedPassword })
+        : await onRegister({ email: trimmedEmail, password: trimmedPassword, displayName: displayName.trim() });
+
+    if (!result.success) {
+      setStatus(result.error ?? "Unable to complete request.");
+    } else {
+      setEmail("");
+      setPassword("");
+      setDisplayName("");
+      setStatus(null);
+      if (!showExpanded) {
+        setExpanded(false);
+      }
+    }
+
+    setSubmitting(false);
+  };
+
+  if (initializing) {
+    return (
+      <section className="mb-6 rounded-3xl border border-white/10 bg-slate-900/40 p-6 text-white backdrop-blur">
+        <p className="text-xs uppercase tracking-[0.35em] text-white/60">Loading account...</p>
+      </section>
+    );
+  }
+
+  if (user) {
+    return (
+      <section className="mb-6 flex flex-col gap-4 rounded-3xl border border-white/10 bg-slate-900/40 p-6 text-white backdrop-blur">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.35em] text-white/50">Signed in as</p>
+            <p className="text-lg font-semibold uppercase tracking-[0.3em] text-white">{user.displayName}</p>
+            <p className="text-xs text-white/50">{user.email}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex gap-4 text-xs uppercase tracking-[0.3em] text-white/70">
+              <span>Wins {user.stats.wins}</span>
+              <span>Losses {user.stats.losses}</span>
+              <span>Games {user.stats.gamesPlayed}</span>
+            </div>
+            <button
+              type="button"
+              onClick={onLogout}
+              className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.35em] text-white transition hover:bg-white/10"
+            >
+              Log out
+            </button>
+          </div>
+        </div>
+        <p className="text-xs text-white/60">
+          Keep playing to level up your record. Your wins and losses update automatically after each game.
+        </p>
+      </section>
+    );
+  }
+
+  if (!expanded) {
+    return (
+      <div className="mb-6 flex justify-end">
+        <button
+          type="button"
+          onClick={() => {
+            setExpanded(true);
+            setStatus(null);
+          }}
+          className="rounded-full border border-white/20 bg-white/5 px-5 py-2 text-xs font-semibold uppercase tracking-[0.35em] text-white transition hover:bg-white/10"
+        >
+          Sign in to track wins
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <section className="mb-6 rounded-3xl border border-white/10 bg-slate-900/40 p-6 text-white backdrop-blur">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold uppercase tracking-[0.3em]">Account</h2>
+          <p className="text-xs text-white/60">
+            Create a free account to save your wins and losses across sessions.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setExpanded(false);
+            setStatus(null);
+          }}
+          className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.35em] text-white transition hover:bg-white/10"
+        >
+          Close
+        </button>
+      </div>
+      <div className="mb-4 flex gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            setMode("login");
+            setStatus(null);
+          }}
+          className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.35em] transition ${
+            mode === "login"
+              ? "bg-emerald-400 text-emerald-950 shadow shadow-emerald-400/40"
+              : "border border-white/20 text-white hover:bg-white/10"
+          }`}
+        >
+          Login
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMode("register");
+            setStatus(null);
+          }}
+          className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.35em] transition ${
+            mode === "register"
+              ? "bg-sky-400 text-sky-950 shadow shadow-sky-400/40"
+              : "border border-white/20 text-white hover:bg-white/10"
+          }`}
+        >
+          Register
+        </button>
+      </div>
+      <form className="grid gap-3 sm:grid-cols-2" onSubmit={handleSubmit}>
+        <label className="text-xs uppercase tracking-[0.3em] text-white/60">
+          Email
+          <input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-sm text-white focus:border-emerald-400 focus:outline-none"
+            placeholder="you@example.com"
+            required
+          />
+        </label>
+        <label className="text-xs uppercase tracking-[0.3em] text-white/60">
+          Password
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-sm text-white focus:border-emerald-400 focus:outline-none"
+            placeholder="Minimum 6 characters"
+            required
+          />
+        </label>
+        {mode === "register" && (
+          <label className="text-xs uppercase tracking-[0.3em] text-white/60 sm:col-span-2">
+            Display Name
+            <input
+              type="text"
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+              className="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-sm text-white focus:border-emerald-400 focus:outline-none"
+              placeholder="How friends see you"
+              required
+              minLength={2}
+              maxLength={50}
+            />
+          </label>
+        )}
+        <div className="sm:col-span-2">
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full rounded-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-sky-500 px-6 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-slate-900 shadow shadow-emerald-400/40 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {submitting ? "Please wait..." : mode === "login" ? "Login" : "Create account"}
+          </button>
+        </div>
+      </form>
+      {status && <p className="mt-3 text-xs text-rose-300">{status}</p>}
+      <p className="mt-4 text-[11px] uppercase tracking-[0.3em] text-white/50">
+        Your credentials are encrypted, and your game history updates after each match. You can keep playing as a guest
+        anytime.
+      </p>
+    </section>
   );
 };
 
@@ -365,7 +601,8 @@ const LandingPanel: React.FC<{
   onCreate: () => void;
   onJoin: () => void;
   error?: string;
-}> = ({ name, setName, room, setRoom, onCreate, onJoin, error }) => {
+  accountUser?: AuthUser | null;
+}> = ({ name, setName, room, setRoom, onCreate, onJoin, error, accountUser }) => {
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-6 rounded-3xl border border-white/10 bg-white/5 p-10 text-white shadow-2xl">
       <header className="text-center">
@@ -374,6 +611,18 @@ const LandingPanel: React.FC<{
           Create a lobby or join with a room code. Plays best with 2-4 friends.
         </p>
       </header>
+
+      {accountUser && (
+        <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-left text-white/80">
+          <p className="text-xs uppercase tracking-[0.35em] text-white/50">Welcome back</p>
+          <p className="mt-1 text-lg font-semibold uppercase tracking-[0.3em] text-white">{accountUser.displayName}</p>
+          <div className="mt-3 flex gap-4 text-xs uppercase tracking-[0.35em] text-white/60">
+            <span>Wins {accountUser.stats.wins}</span>
+            <span>Losses {accountUser.stats.losses}</span>
+            <span>Games {accountUser.stats.gamesPlayed}</span>
+          </div>
+        </div>
+      )}
 
       <label className="text-sm font-semibold uppercase tracking-widest text-white/60" htmlFor="name">
         Display Name
@@ -462,6 +711,7 @@ const GameOverPanel: React.FC<{
 const App: React.FC = () => {
   const socket = useSocket();
   const { phase, setPhase } = usePhasedState();
+  const { user: authUser, initializing: authInitializing, login, register, logout, refreshProfile } = useAuth();
 
   const [name, setName] = useState("");
   const [roomCode, setRoomCode] = useState("");
@@ -478,6 +728,12 @@ const App: React.FC = () => {
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [rushNotice, setRushNotice] = useState<string | null>(null);
   const rushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (authUser && !name) {
+      setName(authUser.displayName);
+    }
+  }, [authUser, name]);
 
   useEffect(() => {
     const handleConnect = () => {
@@ -526,6 +782,7 @@ const App: React.FC = () => {
       setPowerState(initialPowerState);
       setPendingPowerAction(null);
       setPhase("ended");
+      void refreshProfile();
     };
     const handleRushAlert = (payload: RushAlertPayload) => {
       setRushNotice(`RUSH! ${payload.playerName} is down to one card!`);
@@ -560,7 +817,7 @@ const App: React.FC = () => {
         rushTimer.current = null;
       }
     };
-  }, [socket, setPhase]);
+  }, [socket, setPhase, refreshProfile]);
 
   const isHost = useMemo(() => {
     if (!lobbyState || !playerId) return false;
@@ -740,6 +997,14 @@ const App: React.FC = () => {
   return (
     <div className="card-rush-wrapper min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
       <main className="relative z-10 mx-auto min-h-[80vh] max-w-5xl">
+        <AccountPanel
+          user={authUser}
+          initializing={authInitializing}
+          onLogin={login}
+          onRegister={register}
+          onLogout={logout}
+          showExpanded={phase === "landing"}
+        />
         {phase === "landing" && (
           <LandingPanel
             name={name}
@@ -749,6 +1014,7 @@ const App: React.FC = () => {
             onCreate={handleCreateRoom}
             onJoin={handleJoinRoom}
             error={lastError}
+            accountUser={authUser}
           />
         )}
         {phase === "lobby" && lobbyState && (

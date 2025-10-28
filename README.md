@@ -26,6 +26,9 @@ npm run dev
 ### Environment Configuration
 - Development sockets default to `http://localhost:4000`. To override, set `VITE_SERVER_URL` in `packages/client/.env.development.local`.
 - Production builds rely on the page origin. **Do not** commit `.env.local` files pointing at localhost - they will leak into the deployed bundle.
+- Server secrets live in `packages/server/.env` (copy `packages/server/.env.example`):
+  - `JWT_SECRET` – required for issuing/validating account tokens. Use a long random string in production.
+  - `DATABASE_URL` – optional in development (defaults to a local SQLite file). In production, point this at your managed Postgres instance.
 - Additional server configuration (for example, a custom `PORT`) can be provided via environment variables before running `npm --prefix packages/server run start`.
 
 ## Available Scripts
@@ -68,11 +71,16 @@ Design notes and architecture rationale live in `docs/design.md`.
 
 ## Production Deployment (Render)
 1. Connect the GitHub repo to Render and create a Node web service (branch `main`).
-2. Build command: `npm install --production=false && npm run build`.
-3. Start command: `node packages/server/dist/index.js`.
-4. Environment variables: set `NODE_ENV=production` and (optionally) `NODE_VERSION=20.10.0`. The server uses Render's `PORT` automatically.
-5. Health check path: `/api/health`.
-6. Every push to `main` triggers an automatic build and deploy. Refresh the Render URL to see the latest changes.
+2. Provision a free Render Postgres instance and note the connection string.
+3. Build command: `npm install --production=false && npm run build`.
+4. Start command: `node packages/server/dist/index.js`.
+5. Environment variables:
+   - `NODE_ENV=production`
+   - `NODE_VERSION=20.10.0` (optional pin)
+   - `JWT_SECRET=<long-random-string>`
+   - `DATABASE_URL=<render-postgres-connection-string>`
+6. Health check path: `/api/health`.
+7. Every push to `main` triggers an automatic build and deploy. Refresh the Render URL to see the latest changes.
 
 ## Manual Test Checklist
 - [ ] Host creates lobby and receives a join code.

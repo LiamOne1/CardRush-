@@ -14,9 +14,11 @@ import type {
   ServerToClientEvents
 } from "@code-card/shared";
 import { UnoGame } from "../game/state.js";
+import type { AuthService } from "./auth-service.js";
 
 interface RoomPlayer {
   id: string;
+  userId: string | null;
   name: string;
   socketId: string;
   hand: Card[];
@@ -44,7 +46,7 @@ const MIN_PLAYERS_TO_START = 2;
 export class RoomService {
   private rooms = new Map<RoomCode, Room>();
 
-  constructor(private readonly io: Server<ClientToServerEvents, ServerToClientEvents>) {}
+  constructor(private readonly io: Server<ClientToServerEvents, ServerToClientEvents>, private readonly authService: AuthService) {}
 
   async handleCreateRoom(socket: UnoSocket, name: string, callback: (roomCode: RoomCode) => void) {
     const sanitized = name.trim();
@@ -121,6 +123,15 @@ export class RoomService {
 
     this.emitLobby(room);
     callback(true);
+  }
+
+  updatePlayerAccount(socket: UnoSocket, userId: string | null) {
+    const room = this.getRoomForSocket(socket);
+    if (!room) return;
+    const player = room.players.find((p) => p.id === socket.id);
+    if (!player) return;
+    player.userId = userId;
+    this.emitLobby(room);
   }
 
   handleStart(socket: UnoSocket) {
@@ -200,7 +211,7 @@ export class RoomService {
       this.syncDirtyHands(room, [socket.id]);
 
       if (result.winnerId) {
-        this.finishGame(room);
+        void this.finishGame(room);
       } else {
         this.broadcastState(room);
       }
@@ -339,9 +350,22 @@ export class RoomService {
     this.leaveRoom(socket);
   }
 
-  private finishGame(room: Room) {
+  private async finishGame(room: Room) {
     const payload = room.game?.getWinnerPayload();
     if (payload) {
+      try {
+        const outcomes = room.players
+          .filter((player) => player.userId)
+          .map((player) => ({
+            userId: player.userId as string,
+            didWin: player.id === payload.winnerId
+          }));
+        if (outcomes.length > 0) {
+          await this.authService.recordGameOutcome(outcomes);
+        }
+      } catch (error) {
+        console.error("Failed to record game outcome:", error);
+      }
       this.io.to(room.code).emit("gameEnded", payload);
     }
     room.status = "waiting";
@@ -405,6 +429,7 @@ export class RoomService {
   private createPlayer(socket: UnoSocket, name: string): RoomPlayer {
     return {
       id: socket.id,
+      userId: socket.data.userId ?? null,
       name,
       socketId: socket.id,
       hand: [],
