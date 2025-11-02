@@ -16,7 +16,7 @@ import { UnoCard } from "./components/Card";
 import { PlayerBadge } from "./components/PlayerBadge";
 import { useAuth, type AuthUser } from "./providers/auth-provider";
 import { useSocket } from "./providers/socket-provider";
-import { EMOTE_OPTIONS, EMOTE_DISPLAY_DURATION_MS } from "./constants/emotes";
+import { EMOTE_DISPLAY_DURATION_MS } from "./constants/emotes";
 
 interface GameEndedData {
   winnerId: string;
@@ -368,6 +368,25 @@ const GameBoard: React.FC<{
     pendingPowerDrawPlayerId
   } = gameState;
 
+  const [isEmoteMenuOpen, setIsEmoteMenuOpen] = useState(false);
+
+  const handleToggleEmoteMenu = useCallback(() => {
+    if (!localPlayerId) return;
+    setIsEmoteMenuOpen((prev) => !prev);
+  }, [localPlayerId]);
+
+  const handleEmoteSelect = useCallback(
+    (emote: EmoteType) => {
+      onSendEmote(emote);
+      setIsEmoteMenuOpen(false);
+    },
+    [onSendEmote]
+  );
+
+  useEffect(() => {
+    setIsEmoteMenuOpen(false);
+  }, [localPlayerId]);
+
   const awaitingPlayer = pendingPowerDrawPlayerId
     ? players.find((player) => player.id === pendingPowerDrawPlayerId)
     : null;
@@ -397,29 +416,18 @@ const GameBoard: React.FC<{
     <div className="flex h-full flex-col gap-6">
       <section className="grid grid-cols-1 gap-4 rounded-3xl border border-white/10 bg-slate-900/30 p-4 backdrop-blur sm:grid-cols-2">
         {players.map((player) => (
-          <PlayerBadge key={player.id} player={player} isActive={player.id === currentPlayerId} emote={activeEmotes[player.id]} />
+          <PlayerBadge
+            key={player.id}
+            player={player}
+            isActive={player.id === currentPlayerId}
+            emote={activeEmotes[player.id]}
+            showEmotePicker={player.id === localPlayerId}
+            isEmoteMenuOpen={player.id === localPlayerId ? isEmoteMenuOpen : false}
+            onEmoteTrigger={player.id === localPlayerId ? handleToggleEmoteMenu : undefined}
+            onEmoteSelect={player.id === localPlayerId ? handleEmoteSelect : undefined}
+          />
         ))}
       </section>
-      {localPlayerId && (
-        <section className="flex flex-wrap items-center justify-center gap-3 rounded-3xl border border-white/10 bg-slate-900/35 px-5 py-4 text-white backdrop-blur">
-          <span className="text-xs font-semibold uppercase tracking-[0.35em] text-white/70">Quick Emotes</span>
-          <div className="flex flex-wrap justify-center gap-2">
-            {EMOTE_OPTIONS.map((option) => (
-              <button
-                key={option.type}
-                type="button"
-                onClick={() => onSendEmote(option.type)}
-                className="flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.35em] text-white transition hover:border-white/35 hover:bg-white/20"
-              >
-                <span aria-hidden="true" className="text-lg leading-none">
-                  {option.emoji}
-                </span>
-                <span>{option.label}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
 
       <section className="relative flex flex-col items-center justify-center gap-6 overflow-hidden rounded-[2.25rem] border border-white/15 bg-gradient-to-br from-cyan-500/20 via-indigo-500/15 to-fuchsia-500/20 p-6 text-white shadow-[0_0_45px_rgba(96,165,250,0.25)] backdrop-blur-lg">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.18),_transparent_55%)]" />

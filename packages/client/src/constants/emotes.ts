@@ -4,7 +4,8 @@ export const EMOTE_OPTIONS: readonly { type: EmoteType; label: string; emoji: st
   { type: "happy", label: "Happy", emoji: "😄" },
   { type: "angry", label: "Angry", emoji: "😡" },
   { type: "sad", label: "Sad", emoji: "😢" },
-  { type: "shocked", label: "Shocked", emoji: "😲" }
+  { type: "shocked", label: "Shocked", emoji: "😲" },
+  { type: "poop", label: "Poop", emoji: "💩" }
 ] as const;
 
 export const EMOTE_BY_TYPE: Record<EmoteType, { label: string; emoji: string }> = EMOTE_OPTIONS.reduce(

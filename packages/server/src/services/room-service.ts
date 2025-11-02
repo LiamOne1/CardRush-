@@ -43,7 +43,7 @@ type UnoSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
 const MAX_PLAYERS = 4;
 const MIN_PLAYERS_TO_START = 2;
-const VALID_EMOTES: readonly EmoteType[] = ["angry", "sad", "happy", "shocked"];
+const VALID_EMOTES: readonly EmoteType[] = ["angry", "sad", "happy", "shocked", "poop"];
 
 export class RoomService {
   private rooms = new Map<RoomCode, Room>();

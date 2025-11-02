@@ -1,14 +1,26 @@
 import clsx from "clsx";
 import type { PlayerSummary, EmoteType } from "@code-card/shared";
-import { EMOTE_BY_TYPE } from "../constants/emotes";
+import { EMOTE_BY_TYPE, EMOTE_OPTIONS } from "../constants/emotes";
 
 interface PlayerBadgeProps {
   player: PlayerSummary;
   isActive?: boolean;
   emote?: EmoteType | null;
+  showEmotePicker?: boolean;
+  isEmoteMenuOpen?: boolean;
+  onEmoteTrigger?: () => void;
+  onEmoteSelect?: (emote: EmoteType) => void;
 }
 
-export const PlayerBadge: React.FC<PlayerBadgeProps> = ({ player, isActive, emote }) => {
+export const PlayerBadge: React.FC<PlayerBadgeProps> = ({
+  player,
+  isActive,
+  emote,
+  showEmotePicker,
+  isEmoteMenuOpen,
+  onEmoteTrigger,
+  onEmoteSelect
+}) => {
   const isFrozen = player.frozenForTurns > 0;
   const emoteDefinition = emote ? EMOTE_BY_TYPE[emote] : null;
 
@@ -22,11 +34,10 @@ export const PlayerBadge: React.FC<PlayerBadgeProps> = ({ player, isActive, emot
       )}
     >
       {emoteDefinition && (
-        <div className="absolute -top-4 left-1/2 flex min-w-[120px] -translate-x-1/2 items-center justify-center gap-2 rounded-full border border-white/40 bg-white/90 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-900 shadow-lg shadow-black/20">
-          <span aria-hidden="true" className="text-lg leading-none">
+        <div className="absolute -top-4 left-1/2 flex min-w-[48px] -translate-x-1/2 items-center justify-center rounded-full border border-white/40 bg-white/90 px-3 py-1 text-lg leading-none text-slate-900 shadow-lg shadow-black/20">
+          <span aria-hidden="true">
             {emoteDefinition.emoji}
           </span>
-          <span>{emoteDefinition.label}</span>
         </div>
       )}
       <div className="flex items-center gap-3">
@@ -41,6 +52,41 @@ export const PlayerBadge: React.FC<PlayerBadgeProps> = ({ player, isActive, emot
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-end gap-2 text-xs uppercase tracking-wide text-white/70">
+        {showEmotePicker && (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={onEmoteTrigger}
+            className={clsx(
+              "flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 text-lg text-white transition",
+              "hover:border-white/40 hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            )}
+            aria-label={isEmoteMenuOpen ? "Close emote menu" : "Open emote menu"}
+          >
+            <span aria-hidden="true" className="relative flex h-6 items-center justify-center">
+              <span className="flex h-full items-center rounded-full bg-white px-2 text-[10px] font-bold leading-none text-slate-900">
+                ...
+              </span>
+              <span className="absolute -bottom-[3px] left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-white transform" />
+            </span>
+          </button>
+            {isEmoteMenuOpen && (
+              <div className="absolute right-0 top-11 z-20 flex gap-2 rounded-2xl border border-white/20 bg-slate-900/95 p-2 shadow-lg backdrop-blur">
+                {EMOTE_OPTIONS.map((option) => (
+                  <button
+                    key={option.type}
+                    type="button"
+                    onClick={() => onEmoteSelect?.(option.type)}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xl transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  >
+                    <span aria-hidden="true">{option.emoji}</span>
+                    <span className="sr-only">{option.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {player.isHost && <span className="rounded bg-white/20 px-2 py-1 text-slate-900">Host</span>}
         {player.hasCalledUno && (
           <span className="rounded bg-amber-400/90 px-2 py-1 text-amber-950 shadow shadow-amber-500/40">RUSH!</span>
