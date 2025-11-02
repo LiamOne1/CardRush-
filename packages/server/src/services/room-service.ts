@@ -11,6 +11,7 @@ import type {
   PowerStatePayload,
   RoomCode,
   RushAlertPayload,
+  EmoteType,
   ServerToClientEvents
 } from "@code-card/shared";
 import { UnoGame } from "../game/state.js";
@@ -42,6 +43,7 @@ type UnoSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
 const MAX_PLAYERS = 4;
 const MIN_PLAYERS_TO_START = 2;
+const VALID_EMOTES: readonly EmoteType[] = ["angry", "sad", "happy", "shocked"];
 
 export class RoomService {
   private rooms = new Map<RoomCode, Room>();
@@ -310,6 +312,22 @@ export class RoomService {
     } catch (error) {
       this.emitError(socket, error instanceof Error ? error.message : "Unable to play power card");
     }
+  }
+
+  handleSendEmote(socket: UnoSocket, emote: EmoteType) {
+    const room = this.getRoomForSocket(socket);
+    if (!room) return;
+
+    if (!VALID_EMOTES.includes(emote)) {
+      return;
+    }
+
+    const player = room.players.find((candidate) => candidate.id === socket.id);
+    if (!player || !player.connected) {
+      return;
+    }
+
+    this.io.to(room.code).emit("emotePlayed", { playerId: player.id, emote });
   }
 
   leaveRoom(socket: UnoSocket) {

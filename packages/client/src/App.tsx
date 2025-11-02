@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type {
   Card,
@@ -7,13 +7,16 @@ import type {
   PublicGameState,
   PowerCard,
   PowerStatePayload,
-  RushAlertPayload
+  RushAlertPayload,
+  EmotePayload,
+  EmoteType
 } from "@code-card/shared";
 import { CARD_COLORS } from "@code-card/shared";
 import { UnoCard } from "./components/Card";
 import { PlayerBadge } from "./components/PlayerBadge";
 import { useAuth, type AuthUser } from "./providers/auth-provider";
 import { useSocket } from "./providers/socket-provider";
+import { EMOTE_OPTIONS, EMOTE_DISPLAY_DURATION_MS } from "./constants/emotes";
 
 interface GameEndedData {
   winnerId: string;
@@ -337,6 +340,8 @@ const GameBoard: React.FC<{
   onPowerCardDraw: () => void;
   mustDrawPower: boolean;
   localPlayerId: string | null;
+  activeEmotes: Partial<Record<string, EmoteType>>;
+  onSendEmote: (emote: EmoteType) => void;
 }> = ({
   gameState,
   hand,
@@ -350,7 +355,9 @@ const GameBoard: React.FC<{
   onPowerCardSelect,
   onPowerCardDraw,
   mustDrawPower,
-  localPlayerId
+  localPlayerId,
+  activeEmotes,
+  onSendEmote
 }) => {
   const {
     discardTop,
@@ -390,9 +397,29 @@ const GameBoard: React.FC<{
     <div className="flex h-full flex-col gap-6">
       <section className="grid grid-cols-1 gap-4 rounded-3xl border border-white/10 bg-slate-900/30 p-4 backdrop-blur sm:grid-cols-2">
         {players.map((player) => (
-          <PlayerBadge key={player.id} player={player} isActive={player.id === currentPlayerId} />
+          <PlayerBadge key={player.id} player={player} isActive={player.id === currentPlayerId} emote={activeEmotes[player.id]} />
         ))}
       </section>
+      {localPlayerId && (
+        <section className="flex flex-wrap items-center justify-center gap-3 rounded-3xl border border-white/10 bg-slate-900/35 px-5 py-4 text-white backdrop-blur">
+          <span className="text-xs font-semibold uppercase tracking-[0.35em] text-white/70">Quick Emotes</span>
+          <div className="flex flex-wrap justify-center gap-2">
+            {EMOTE_OPTIONS.map((option) => (
+              <button
+                key={option.type}
+                type="button"
+                onClick={() => onSendEmote(option.type)}
+                className="flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.35em] text-white transition hover:border-white/35 hover:bg-white/20"
+              >
+                <span aria-hidden="true" className="text-lg leading-none">
+                  {option.emoji}
+                </span>
+                <span>{option.label}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="relative flex flex-col items-center justify-center gap-6 overflow-hidden rounded-[2.25rem] border border-white/15 bg-gradient-to-br from-cyan-500/20 via-indigo-500/15 to-fuchsia-500/20 p-6 text-white shadow-[0_0_45px_rgba(96,165,250,0.25)] backdrop-blur-lg">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.18),_transparent_55%)]" />
@@ -719,21 +746,53 @@ const App: React.FC = () => {
   const [gameState, setGameState] = useState<PublicGameState | null>(null);
   const [hand, setHand] = useState<Card[]>(initialHandState);
   const [powerState, setPowerState] = useState<PowerStatePayload>(initialPowerState);
-  const [pendingPowerAction, setPendingPowerAction] = useState<{ card: PowerCard; mode: "target" | "color" } | null>(
-    null
-  );
+  const [pendingPowerAction, setPendingPowerAction] = useState<{ card: PowerCard; mode: "target" | "color" } | null>(null);
   const [pendingWild, setPendingWild] = useState<Card | null>(null);
   const [lastError, setLastError] = useState<string | undefined>();
   const [endState, setEndState] = useState<GameEndedData | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [rushNotice, setRushNotice] = useState<string | null>(null);
+  const [activeEmotes, setActiveEmotes] = useState<Record<string, EmoteType>>({});
   const rushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const emoteTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  const showEmote = useCallback(
+    (targetPlayerId: string, emote: EmoteType) => {
+      setActiveEmotes((prev) => ({
+        ...prev,
+        [targetPlayerId]: emote
+      }));
+
+      if (emoteTimers.current[targetPlayerId]) {
+        clearTimeout(emoteTimers.current[targetPlayerId]);
+      }
+
+      emoteTimers.current[targetPlayerId] = setTimeout(() => {
+        setActiveEmotes((prev) => {
+          const next = { ...prev };
+          delete next[targetPlayerId];
+          return next;
+        });
+        delete emoteTimers.current[targetPlayerId];
+      }, EMOTE_DISPLAY_DURATION_MS);
+    },
+    []
+  );
 
   useEffect(() => {
     if (authUser && !name) {
       setName(authUser.displayName);
     }
   }, [authUser, name]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(emoteTimers.current).forEach((timer) => {
+        clearTimeout(timer);
+      });
+      emoteTimers.current = {};
+    };
+  }, []);
 
   useEffect(() => {
     const handleConnect = () => {
@@ -750,6 +809,7 @@ const App: React.FC = () => {
           setHand(initialHandState);
           setPowerState(initialPowerState);
           setPendingPowerAction(null);
+          setActiveEmotes({});
           return "lobby";
         }
         return prev;
@@ -759,9 +819,10 @@ const App: React.FC = () => {
       setGameState(state);
       setHand(handPayload.cards);
       setPendingWild(null);
-       setPowerState(initialPowerState);
-       setPendingPowerAction(null);
+      setPowerState(initialPowerState);
+      setPendingPowerAction(null);
       setEndState(null);
+      setActiveEmotes({});
       setPhase("game");
     };
     const handleStateUpdate = (state: PublicGameState) => {
@@ -781,6 +842,7 @@ const App: React.FC = () => {
       setEndState(payload);
       setPowerState(initialPowerState);
       setPendingPowerAction(null);
+      setActiveEmotes({});
       setPhase("ended");
       void refreshProfile();
     };
@@ -790,6 +852,9 @@ const App: React.FC = () => {
         clearTimeout(rushTimer.current);
       }
       rushTimer.current = setTimeout(() => setRushNotice(null), 4000);
+    };
+    const handleEmotePlayed = (payload: EmotePayload) => {
+      showEmote(payload.playerId, payload.emote);
     };
 
     socket.on("connect", handleConnect);
@@ -801,6 +866,7 @@ const App: React.FC = () => {
     socket.on("error", handleError);
     socket.on("gameEnded", handleGameEnded);
     socket.on("rushAlert", handleRushAlert);
+    socket.on("emotePlayed", handleEmotePlayed);
 
     return () => {
       socket.off("connect", handleConnect);
@@ -812,12 +878,13 @@ const App: React.FC = () => {
       socket.off("error", handleError);
       socket.off("gameEnded", handleGameEnded);
       socket.off("rushAlert", handleRushAlert);
+      socket.off("emotePlayed", handleEmotePlayed);
       if (rushTimer.current) {
         clearTimeout(rushTimer.current);
         rushTimer.current = null;
       }
     };
-  }, [socket, setPhase, refreshProfile]);
+  }, [socket, setPhase, refreshProfile, showEmote]);
 
   const isHost = useMemo(() => {
     if (!lobbyState || !playerId) return false;
@@ -855,6 +922,17 @@ const App: React.FC = () => {
     }
     return CARD_COLORS.filter((color) => colors.has(color));
   }, [pendingPowerAction, hand]);
+
+  const handleSendEmote = useCallback(
+    (emote: EmoteType) => {
+      socket.emit("sendEmote", emote);
+      const sourceId = playerId ?? socket.id ?? null;
+      if (sourceId) {
+        showEmote(sourceId, emote);
+      }
+    },
+    [socket, playerId, showEmote]
+  );
 
   const handleCreateRoom = () => {
     if (!name.trim()) {
@@ -1035,6 +1113,8 @@ const App: React.FC = () => {
             onPowerCardDraw={handleDrawPowerCard}
             mustDrawPower={mustDrawPower}
             localPlayerId={playerId}
+            activeEmotes={activeEmotes}
+            onSendEmote={handleSendEmote}
           />
         )}
         {phase === "ended" && endState && lobbyState && (

@@ -69,6 +69,10 @@ export const registerSocketHandlers = (io: UnoServer, authService: AuthService) 
       roomService.handlePlayPowerCard(socket, payload);
     });
 
+    socket.on("sendEmote", (emote) => {
+      roomService.handleSendEmote(socket, emote);
+    });
+
     socket.on("leaveRoom", () => {
       roomService.leaveRoom(socket);
     });
