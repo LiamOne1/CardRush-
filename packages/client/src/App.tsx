@@ -178,7 +178,6 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ user, initializing, onLogin
           <div>
             <p className="text-xs uppercase tracking-[0.35em] text-white/50">Signed in as</p>
             <p className="text-lg font-semibold uppercase tracking-[0.3em] text-white">{user.displayName}</p>
-            <p className="text-xs text-white/50">{user.email}</p>
           </div>
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex gap-4 text-xs uppercase tracking-[0.3em] text-white/70">
@@ -1083,14 +1082,16 @@ const App: React.FC = () => {
   return (
     <div className="card-rush-wrapper min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
       <main className="relative z-10 mx-auto min-h-[80vh] max-w-5xl">
-        <AccountPanel
-          user={authUser}
-          initializing={authInitializing}
-          onLogin={login}
-          onRegister={register}
-          onLogout={logout}
-          showExpanded={phase === "landing"}
-        />
+        {phase === "landing" && (
+          <AccountPanel
+            user={authUser}
+            initializing={authInitializing}
+            onLogin={login}
+            onRegister={register}
+            onLogout={logout}
+            showExpanded={phase === "landing"}
+          />
+        )}
         {phase === "landing" && (
           <LandingPanel
             name={name}
