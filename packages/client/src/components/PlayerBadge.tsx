@@ -53,7 +53,7 @@ export const PlayerBadge: React.FC<PlayerBadgeProps> = ({
       </div>
       <div className="flex flex-wrap items-center justify-end gap-2 text-xs uppercase tracking-wide text-white/70">
         {showEmotePicker && (
-          <div className="relative">
+          <div className="relative z-40">
             <button
               type="button"
               onClick={onEmoteTrigger}
@@ -71,7 +71,7 @@ export const PlayerBadge: React.FC<PlayerBadgeProps> = ({
             </span>
           </button>
             {isEmoteMenuOpen && (
-              <div className="absolute right-0 top-11 z-20 flex gap-2 rounded-2xl border border-white/20 bg-slate-900/95 p-2 shadow-lg backdrop-blur">
+              <div className="absolute right-1/2 top-0 z-50 flex translate-x-1/2 -translate-y-full gap-2 rounded-2xl border border-white/20 bg-slate-900/95 p-2 shadow-lg backdrop-blur">
                 {EMOTE_OPTIONS.map((option) => (
                   <button
                     key={option.type}
