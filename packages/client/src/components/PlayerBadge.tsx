@@ -5,6 +5,8 @@ import { EMOTE_BY_TYPE, EMOTE_OPTIONS } from "../constants/emotes";
 interface PlayerBadgeProps {
   player: PlayerSummary;
   isActive?: boolean;
+  isCurrentTurn?: boolean;
+  turnSecondsLeft?: number | null;
   emote?: EmoteType | null;
   showEmotePicker?: boolean;
   isEmoteMenuOpen?: boolean;
@@ -15,6 +17,8 @@ interface PlayerBadgeProps {
 export const PlayerBadge: React.FC<PlayerBadgeProps> = ({
   player,
   isActive,
+  isCurrentTurn,
+  turnSecondsLeft,
   emote,
   showEmotePicker,
   isEmoteMenuOpen,
@@ -49,6 +53,12 @@ export const PlayerBadge: React.FC<PlayerBadgeProps> = ({
           <span className="text-xs text-white/60">
             {player.cardCount} card{player.cardCount === 1 ? "" : "s"}
           </span>
+          {isCurrentTurn && turnSecondsLeft !== null && (
+            <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-amber-200">
+              <span aria-hidden="true">⏱</span>
+              <span>{Math.max(0, turnSecondsLeft)}s</span>
+            </div>
+          )}
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-end gap-2 text-xs uppercase tracking-wide text-white/70">

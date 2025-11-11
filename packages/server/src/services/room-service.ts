@@ -41,12 +41,14 @@ interface Room {
 
 type UnoSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
-const MAX_PLAYERS = 4;
+const MAX_PLAYERS = 6;
 const MIN_PLAYERS_TO_START = 2;
 const VALID_EMOTES: readonly EmoteType[] = ["angry", "sad", "happy", "shocked", "poop"];
+const TURN_TIMEOUT_MS = 60_000;
 
 export class RoomService {
   private rooms = new Map<RoomCode, Room>();
+  private turnTimers = new Map<RoomCode, NodeJS.Timeout>();
 
   constructor(private readonly io: Server<ClientToServerEvents, ServerToClientEvents>, private readonly authService: AuthService) {}
 
@@ -186,6 +188,7 @@ export class RoomService {
 
     this.emitLobby(room);
     this.broadcastState(room);
+    this.scheduleTurnTimer(room);
   }
 
   handlePlayCard(socket: UnoSocket, payload: PlayCardPayload) {
@@ -216,6 +219,7 @@ export class RoomService {
         void this.finishGame(room);
       } else {
         this.broadcastState(room);
+        this.scheduleTurnTimer(room);
       }
     } catch (error) {
       this.emitError(socket, error instanceof Error ? error.message : "Unable to play card");
@@ -239,6 +243,8 @@ export class RoomService {
 
       this.syncDirtyHands(room, [socket.id]);
       this.broadcastState(room);
+      this.scheduleTurnTimer(room);
+      this.scheduleTurnTimer(room);
     } catch (error) {
       this.emitError(socket, error instanceof Error ? error.message : "Unable to draw card");
     }
@@ -253,6 +259,7 @@ export class RoomService {
       this.syncPowerState(room, socket.id);
       this.syncDirtyHands(room, [socket.id]);
       this.broadcastState(room);
+      this.scheduleTurnTimer(room);
     } catch (error) {
       this.emitError(socket, error instanceof Error ? error.message : "Unable to draw a power card");
     }
@@ -343,10 +350,12 @@ export class RoomService {
 
     if (room.players.length === 0) {
       this.rooms.delete(room.code);
+      this.clearTurnTimer(room.code);
     } else {
       if (room.hostId === socket.id) {
         room.hostId = room.players[0].id;
       }
+      this.clearTurnTimer(room.code);
       room.status = "waiting";
       room.game = undefined;
       for (const player of room.players) {
@@ -386,6 +395,7 @@ export class RoomService {
       }
       this.io.to(room.code).emit("gameEnded", payload);
     }
+    this.clearTurnTimer(room.code);
     room.status = "waiting";
     room.game = undefined;
     for (const player of room.players) {
@@ -397,6 +407,64 @@ export class RoomService {
       this.io.to(player.id).emit("powerStateUpdate", { points: 0, cards: [], requiredDraws: 0 });
     }
     this.emitLobby(room);
+  }
+
+  private scheduleTurnTimer(room: Room) {
+    if (room.status !== "in-progress" || !room.game) {
+      this.clearTurnTimer(room.code);
+      return;
+    }
+
+    this.clearTurnTimer(room.code);
+    const timer = setTimeout(() => this.handleTurnTimeout(room.code), TURN_TIMEOUT_MS);
+    this.turnTimers.set(room.code, timer);
+  }
+
+  private clearTurnTimer(roomCode: RoomCode) {
+    const existing = this.turnTimers.get(roomCode);
+    if (existing) {
+      clearTimeout(existing);
+      this.turnTimers.delete(roomCode);
+    }
+  }
+
+  private handleTurnTimeout(roomCode: RoomCode) {
+    const room = this.rooms.get(roomCode);
+    if (!room || room.status !== "in-progress" || !room.game) {
+      this.clearTurnTimer(roomCode);
+      return;
+    }
+
+    const currentPlayer = room.game.getCurrentPlayer();
+    if (!currentPlayer) {
+      this.scheduleTurnTimer(room);
+      return;
+    }
+
+    try {
+      if (currentPlayer.isAwaitingPowerDraw) {
+        room.game.drawPowerCard(currentPlayer.id);
+        this.syncPowerState(room, currentPlayer.id);
+      } else {
+        room.game.draw(currentPlayer.id);
+      }
+
+      const hand = room.game.getHand(currentPlayer.id);
+      this.io.to(currentPlayer.id).emit("handUpdate", { cards: hand });
+
+      const roomPlayer = room.players.find((player) => player.id === currentPlayer.id);
+      if (roomPlayer) {
+        roomPlayer.hand = hand;
+        roomPlayer.hasCalledUno = false;
+      }
+
+      this.syncDirtyHands(room, [currentPlayer.id]);
+      this.broadcastState(room);
+    } catch (error) {
+      console.error("Failed to auto-advance turn after timeout:", error);
+    } finally {
+      this.scheduleTurnTimer(room);
+    }
   }
 
   private broadcastState(room: Room) {

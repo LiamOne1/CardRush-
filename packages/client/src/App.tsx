@@ -18,6 +18,8 @@ import { useAuth, type AuthUser } from "./providers/auth-provider";
 import { useSocket } from "./providers/socket-provider";
 import { EMOTE_DISPLAY_DURATION_MS } from "./constants/emotes";
 
+const TURN_TIMEOUT_MS = 60_000;
+
 interface GameEndedData {
   winnerId: string;
   scores: Record<string, number>;
@@ -341,6 +343,7 @@ const GameBoard: React.FC<{
   localPlayerId: string | null;
   activeEmotes: Partial<Record<string, EmoteType>>;
   onSendEmote: (emote: EmoteType) => void;
+  turnRemainingMs: number;
 }> = ({
   gameState,
   hand,
@@ -356,7 +359,8 @@ const GameBoard: React.FC<{
   mustDrawPower,
   localPlayerId,
   activeEmotes,
-  onSendEmote
+  onSendEmote,
+  turnRemainingMs
 }) => {
   const {
     discardTop,
@@ -385,7 +389,6 @@ const GameBoard: React.FC<{
   useEffect(() => {
     setIsEmoteMenuOpen(false);
   }, [localPlayerId]);
-
   const awaitingPlayer = pendingPowerDrawPlayerId
     ? players.find((player) => player.id === pendingPowerDrawPlayerId)
     : null;
@@ -414,18 +417,24 @@ const GameBoard: React.FC<{
   return (
     <div className="flex h-full flex-col gap-6">
       <section className="grid grid-cols-1 gap-4 rounded-3xl border border-white/10 bg-slate-900/30 p-4 backdrop-blur sm:grid-cols-2">
-        {players.map((player) => (
-          <PlayerBadge
-            key={player.id}
-            player={player}
-            isActive={player.id === currentPlayerId}
-            emote={activeEmotes[player.id]}
-            showEmotePicker={player.id === localPlayerId}
-            isEmoteMenuOpen={player.id === localPlayerId ? isEmoteMenuOpen : false}
-            onEmoteTrigger={player.id === localPlayerId ? handleToggleEmoteMenu : undefined}
-            onEmoteSelect={player.id === localPlayerId ? handleEmoteSelect : undefined}
-          />
-        ))}
+        {players.map((player) => {
+          const isCurrent = player.id === currentPlayerId;
+          const secondsLeft = isCurrent ? Math.max(0, Math.ceil(turnRemainingMs / 1000)) : null;
+          return (
+            <PlayerBadge
+              key={player.id}
+              player={player}
+              isActive={isCurrent}
+              isCurrentTurn={isCurrent}
+              turnSecondsLeft={secondsLeft}
+              emote={activeEmotes[player.id]}
+              showEmotePicker={player.id === localPlayerId}
+              isEmoteMenuOpen={player.id === localPlayerId ? isEmoteMenuOpen : false}
+              onEmoteTrigger={player.id === localPlayerId ? handleToggleEmoteMenu : undefined}
+              onEmoteSelect={player.id === localPlayerId ? handleEmoteSelect : undefined}
+            />
+          );
+        })}
       </section>
 
       <section className="relative flex flex-col items-center justify-center gap-6 overflow-hidden rounded-[2.25rem] border border-white/15 bg-gradient-to-br from-cyan-500/20 via-indigo-500/15 to-fuchsia-500/20 p-6 text-white shadow-[0_0_45px_rgba(96,165,250,0.25)] backdrop-blur-lg">
@@ -762,6 +771,8 @@ const App: React.FC = () => {
   const [activeEmotes, setActiveEmotes] = useState<Record<string, EmoteType>>({});
   const rushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const emoteTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const [turnDeadline, setTurnDeadline] = useState<number | null>(null);
+  const [turnRemainingMs, setTurnRemainingMs] = useState(TURN_TIMEOUT_MS);
 
   const showEmote = useCallback(
     (targetPlayerId: string, emote: EmoteType) => {
@@ -800,6 +811,27 @@ const App: React.FC = () => {
       emoteTimers.current = {};
     };
   }, []);
+
+  useEffect(() => {
+    if (!gameState) {
+      setTurnDeadline(null);
+      return;
+    }
+    setTurnDeadline(Date.now() + TURN_TIMEOUT_MS);
+  }, [gameState?.currentPlayerId]);
+
+  useEffect(() => {
+    if (!turnDeadline) {
+      setTurnRemainingMs(TURN_TIMEOUT_MS);
+      return;
+    }
+    const tick = () => {
+      setTurnRemainingMs(Math.max(0, turnDeadline - Date.now()));
+    };
+    tick();
+    const id = window.setInterval(tick, 200);
+    return () => window.clearInterval(id);
+  }, [turnDeadline]);
 
   useEffect(() => {
     const handleConnect = () => {
@@ -1124,6 +1156,7 @@ const App: React.FC = () => {
             localPlayerId={playerId}
             activeEmotes={activeEmotes}
             onSendEmote={handleSendEmote}
+            turnRemainingMs={turnRemainingMs}
           />
         )}
         {phase === "ended" && endState && lobbyState && (
