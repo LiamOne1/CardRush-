@@ -440,6 +440,43 @@ export class UnoGame {
     return { affectedPlayerIds: Array.from(affectedPlayerIds) };
   }
 
+  removePlayer(playerId: string) {
+    const index = this.players.findIndex((player) => player.id === playerId);
+    if (index === -1) {
+      return null;
+    }
+
+    this.players.splice(index, 1);
+    this.pendingHandSyncs.delete(playerId);
+
+    if (this.pendingPowerDrawPlayerId === playerId) {
+      this.pendingPowerDrawPlayerId = null;
+    }
+
+    if (this.players.length === 0) {
+      this.hasStarted = false;
+      this.winnerId = null;
+      this.currentPlayerIndex = 0;
+      return { remainingPlayers: 0 };
+    }
+
+    if (this.players.length === 1) {
+      this.currentPlayerIndex = 0;
+      this.winnerId = this.players[0].id;
+      return { remainingPlayers: 1, winnerId: this.winnerId };
+    }
+
+    if (index < this.currentPlayerIndex) {
+      this.currentPlayerIndex -= 1;
+    } else if (this.currentPlayerIndex >= this.players.length) {
+      this.currentPlayerIndex = 0;
+    }
+
+    this.currentPlayerIndex = (this.currentPlayerIndex + this.players.length) % this.players.length;
+    this.prepareCurrentPlayerForTurn();
+    return { remainingPlayers: this.players.length };
+  }
+
   getWinnerPayload(): GameEndedPayload | null {
     if (!this.winnerId) return null;
 

@@ -598,7 +598,7 @@ const LobbyPanel: React.FC<{
   onStart: () => void;
   onLeave: () => void;
 }> = ({ lobby, isHost, onStart, onLeave }) => {
-  const canStart = isHost && lobby.players.length >= 2 && lobby.players.length <= 4;
+  const canStart = isHost && lobby.players.length >= 2 && lobby.players.length <= 6;
   return (
     <div className="flex flex-col gap-6">
       <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-white shadow-inner">
@@ -835,12 +835,15 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handleConnect = () => {
-      setPlayerId(socket.id ?? null);
+      setPlayerId(null);
     };
     const handleLobbyUpdate = (state: LobbyState) => {
       setLobbyState(state);
       setRoomCode(state.roomCode);
       setPhase((prev) => {
+        if (state.status === "in-progress") {
+          return "game";
+        }
         if (prev === "ended") return prev;
         if (prev === "landing") return "lobby";
         if (prev === "game" && state.status === "waiting") {
@@ -866,6 +869,7 @@ const App: React.FC = () => {
     };
     const handleStateUpdate = (state: PublicGameState) => {
       setGameState(state);
+      setPhase("game");
     };
     const handleHandUpdate = (payload: { cards: Card[] }) => {
       setHand(payload.cards);
@@ -895,6 +899,9 @@ const App: React.FC = () => {
     const handleEmotePlayed = (payload: EmotePayload) => {
       showEmote(payload.playerId, payload.emote);
     };
+    const handlePlayerIdentified = (id: string) => {
+      setPlayerId(id);
+    };
 
     socket.on("connect", handleConnect);
     socket.on("lobbyUpdate", handleLobbyUpdate);
@@ -906,6 +913,7 @@ const App: React.FC = () => {
     socket.on("gameEnded", handleGameEnded);
     socket.on("rushAlert", handleRushAlert);
     socket.on("emotePlayed", handleEmotePlayed);
+    socket.on("playerIdentified", handlePlayerIdentified);
 
     return () => {
       socket.off("connect", handleConnect);
@@ -918,12 +926,23 @@ const App: React.FC = () => {
       socket.off("gameEnded", handleGameEnded);
       socket.off("rushAlert", handleRushAlert);
       socket.off("emotePlayed", handleEmotePlayed);
+      socket.off("playerIdentified", handlePlayerIdentified);
       if (rushTimer.current) {
         clearTimeout(rushTimer.current);
         rushTimer.current = null;
       }
     };
   }, [socket, setPhase, refreshProfile, showEmote]);
+
+  useEffect(() => {
+    if (!lobbyState) return;
+    const normalized = name.trim().toLowerCase();
+    if (!normalized) return;
+    const self = lobbyState.players.find((player) => player.name.toLowerCase() === normalized);
+    if (self && self.id !== playerId) {
+      setPlayerId(self.id);
+    }
+  }, [lobbyState, name, playerId]);
 
   const isHost = useMemo(() => {
     if (!lobbyState || !playerId) return false;
@@ -965,21 +984,22 @@ const App: React.FC = () => {
   const handleSendEmote = useCallback(
     (emote: EmoteType) => {
       socket.emit("sendEmote", emote);
-      const sourceId = playerId ?? socket.id ?? null;
-      if (sourceId) {
-        showEmote(sourceId, emote);
+      if (playerId) {
+        showEmote(playerId, emote);
       }
     },
     [socket, playerId, showEmote]
   );
 
   const handleCreateRoom = () => {
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
       setLastError("Enter a display name first");
       return;
     }
-    socket.emit("createRoom", name.trim(), (room) => {
-      const hostId = socket.id ?? playerId ?? "pending-host";
+    setName(trimmedName);
+    socket.emit("createRoom", trimmedName, (room) => {
+      const hostId = playerId ?? "pending-host";
 
       setRoomCode(room);
       setLobbyState({
@@ -989,7 +1009,7 @@ const App: React.FC = () => {
         players: [
           {
             id: hostId,
-            name: name.trim(),
+            name: trimmedName,
             isHost: true,
             cardCount: 0,
             hasCalledUno: false,
@@ -1004,20 +1024,22 @@ const App: React.FC = () => {
   };
 
   const handleJoinRoom = () => {
-    if (!name.trim() || !roomCode.trim()) {
+    const trimmedName = name.trim();
+    const trimmedCode = roomCode.trim().toUpperCase();
+    if (!trimmedName || !trimmedCode) {
       setLastError("Enter both name and room code");
       return;
     }
-    const code = roomCode.trim().toUpperCase();
+    setName(trimmedName);
     socket.emit(
       "joinRoom",
-      { roomCode: code, name: name.trim() },
+      { roomCode: trimmedCode, name: trimmedName },
       (success, message) => {
         if (!success) {
           setLastError(message ?? "Unable to join room");
           return;
         }
-        setRoomCode(code);
+        setRoomCode(trimmedCode);
         setPhase("lobby");
       }
     );

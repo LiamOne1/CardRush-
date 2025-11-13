@@ -88,6 +88,7 @@ export interface ServerToClientEvents {
   rushAlert: (payload: RushAlertPayload) => void;
   powerStateUpdate: (payload: PowerStatePayload) => void;
   emotePlayed: (payload: EmotePayload) => void;
+  playerIdentified: (playerId: PlayerId) => void;
 }
 
 export interface JoinRoomPayload {
@@ -122,7 +123,7 @@ export interface ClientToServerEvents {
 export interface InterServerEvents {}
 
 export interface SocketData {
-  playerId: PlayerId;
+  playerId?: PlayerId;
   roomCode?: RoomCode;
   name?: string;
   userId?: string;
