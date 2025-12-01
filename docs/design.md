@@ -1,61 +1,52 @@
-# Distributed UNO Game Design
+# Card Rush – Final Design Summary
 
-## Goals
-- Support 2-4 players per game room with host-controlled start.
-- Enforce standard UNO rules including action and wild cards.
-- Real-time synchronized gameplay over the network with minimal latency.
-- Clean, responsive browser UI with join-by-code flow.
-- Minimize external dependencies so the project is easy to run for classmates.
+This document captures the final shipped architecture for Card Rush, our multiplayer UNO variant with power cards. Every system described below is implemented in production.
+
+## Product Goals
+- Host up to six concurrent players with lobby codes, reconnect support, and host-governed starts.
+- Provide a responsive, theme-consistent UI with contextual help (landing modal, Card Rush preview, rush alerts).
+- Enforce all UNO mechanics plus Card Rush, Freeze, Color Rush (instant-win condition), and Swap Hands on the server.
+- Keep the codebase approachable via a TypeScript monorepo and shared models.
 
 ## High-Level Architecture
-- **Backend**: Node.js with Express for REST endpoints and Socket.IO for real-time events. Encapsulate UNO rules in pure TypeScript modules, exposing commands (play, draw, choose color, call UNO) validated server-side.
-- **Frontend**: React (Vite) single-page app connecting via Socket.IO client. State managed with React Query + context to mirror server events. TailwindCSS for rapid styling while keeping the UI clean.
-- **Data Sharing**: Lightweight shared TypeScript types under `packages/shared` to keep payload contracts consistent across client and server.
+- **Backend** – Node 20, Express, and Socket.IO. `UnoGame` encapsulates shuffling, draw stacking, frozen turns, power meters, and the Color Rush victory shortcut. The server also runs account auth/stat tracking for returning players.
+- **Frontend** – React + Vite SPA with Tailwind styling. Socket provider + React context propagate state; UI covers landing/lobby/board/endgame phases with animations and SVG art for each power card.
+- **Shared Types** – `packages/shared` exports card models, payloads, and enums so both sides compile against the exact same contracts.
 
 ## Deployment Model
-- Host runs both server and client locally (`npm run dev`). For production, server can serve the built client assets, keeping a single process.
+- `npm run dev` for local dual-server development.
+- Production bundles (`npm run build`) emit a single Express server that serves the static client and hosts the Socket.IO endpoint. Render deployments use `node packages/server/dist/index.js`.
 
-## Game Lifecycle
-1. Host hits "Create Game"; server creates room id (short alphanumeric) and becomes owner.
-2. Players join via room code. Lobby shows connected players; host starts once 2-4 players ready.
-3. Server shuffles deck, deals 7 cards each, reveals first discard (ensuring it is not wild draw four).
-4. Gameplay loop:
-   - Server tracks `currentPlayerIndex`, `currentDirection`, `pendingDrawCount`, and `currentColor`.
-   - Players emit actions; server validates and updates state, broadcasts diffs.
-   - Draw penalties (Draw Two/Four) accumulate until satisfied.
-   - Reverse flips direction; Skip advances two positions; Wilds require color selection.
-5. RUSH alert: when a player has one card remaining, server auto-flags them and broadcasts a `rushAlert` notification to opponents.
-6. Round ends when a player empties hand. Server calculates scores (sum of opponents' cards) and announces winner.
+## Gameplay Lifecycle
+1. Host creates a lobby (short uppercase code); display name is persisted when authenticated.
+2. Players join via code. Lobby panel shows stats, and the host launches once 2–6 seats fill.
+3. Server builds the deck (with extra action-card duplicates), deals seven cards, and exposes the discard top/current color.
+4. Loop per turn:
+   - Server validates `playCard`, `drawCard`, `drawPowerCard`, and `playPowerCard`.
+   - Draw penalties accumulate; Freeze increases `frozenForTurns`; Color Rush discards matching colors and can trigger an immediate win.
+   - Power meter accrues points; once multiples of four are reached, the server forces draws before play continues.
+   - Client presents wild color pickers, Card Rush preview modal, and target selectors when relevant.
+5. Rush alerts broadcast when any player hits one card.
+6. Round ends when a hand empties (via regular play or Color Rush). The server scores opponents, announces the winner, and resets the lobby for the next round.
 
 ## Core Modules
-- `DeckFactory`: builds and shuffles deck using Fisher-Yates.
-- `GameState`: immutable representation of a room; methods return new state with audit trail.
-- `GameService`: orchestrates rooms, players, event emission, persistence.
-- `SocketHandlers`: maps socket events to game commands, ensuring authorization (only current player issues turn sensitive commands).
+- `DeckFactory` – builds base and power decks (Fisher–Yates shuffle, increased action-card frequency).
+- `UnoGame` – authoritative state machine plus helpers for pending hand syncs, rush alerts, and reconnection-safe data.
+- `RoomService` – manages rooms, sockets, turn timers, auth bridging, and persistence of stats.
+- `AuthService` – issues JWTs and records win/loss totals for signed-in players.
 
-## Communication Protocol (Socket Events)
-- Client -> Server: `createRoom`, `joinRoom`, `startGame`, `playCard`, `drawCard`, `chooseColor`, `leaveRoom`.
-- Server -> Client: `lobbyUpdate`, `gameStarted`, `stateUpdate` (public data), `handUpdate` (private), `error`, `gameEnded`, `rushAlert`.
-- Public state excludes opponents' hands (only counts) and top discard details. Private hand updates sent individually.
+## Socket Contract
+- **Client → Server**: `createRoom`, `joinRoom`, `startGame`, `playCard`, `drawCard`, `drawPowerCard`, `playPowerCard`, `leaveRoom`, `sendEmote`, `updateAuth`.
+- **Server → Client**: `lobbyUpdate`, `stateUpdate`, `handUpdate`, `powerStateUpdate`, `gameStarted`, `gameEnded`, `rushAlert`, `error`, `playerIdentified`, `emotePlayed`.
+- Public broadcasts never leak opponents’ hands; private updates are delivered per player.
 
-## Data Models (Shared Types)
-- `Card`: `{ id, color: 'red'|'yellow'|'green'|'blue'|'wild', value: '0'-'9'|'skip'|'reverse'|'draw2'|'wild'|'wild4' }`.
-- `PlayerSummary`: `{ id, name, isHost, cardCount, hasCalledUno }`.
-- `LobbyState`: `{ roomCode, players: PlayerSummary[], hostId }`.
-- `GameSnapshot`: `{ roomCode, currentPlayerId, direction, discardTop, currentColor, drawStack, players: PlayerSummary[] }`.
+## Data Models
+- `Card`, `PowerCard`, `PlayerSummary`, `LobbyState`, `PublicGameState`, `PowerStatePayload`, and payloads for each socket event all live in `packages/shared`.
+- Clients derive display-only helpers (e.g., power meter percentage) strictly from these payloads, preventing drift.
 
-## Error Handling & Resilience
-- Heartbeat/ping to detect disconnects; if player disconnects mid-game, server keeps hand for a grace period before bot drop.
-- Validation returns descriptive errors; client surfaces toast notifications.
-- Use server-side deterministic randomness (seed optional) for reproducibility.
+## Reliability & Testing
+- Heartbeat/disconnect detection pauses sockets but preserves hands so players can rejoin mid-match.
+- Deterministic server RNG ensures fairness; deck recycling logic prevents exhaustion.
+- Automated unit coverage exists for deck factories and power logic; QA checklist (see README) validates multiplayer flows before releases.
 
-## Testing Strategy
-- Unit test UNO rules (deck generation, valid move checking, action effects) via Jest.
-- Integration tests for socket flow using Socket.IO test harness.
-- Manual end-to-end test: two browser tabs connecting locally.
-
-## Future Enhancements
-- Spectator mode and chat.
-- Persistent matches with Redis adapter for horizontal scaling.
-- Authentication for user identities beyond display name.
-- Mobile-friendly layout improvements and animations.
+Card Rush is feature-complete; future updates focus on seasonal art drops and live events rather than core mechanics.

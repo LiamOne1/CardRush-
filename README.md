@@ -1,13 +1,13 @@
-# Card Rush UNO
+# Card Rush
 
-Card Rush is a real-time, browser-based UNO experience built as a small TypeScript monorepo. A React + Vite client renders the UI, while an Express + Socket.IO server enforces the rules, power-card mechanics, and synchronized state for 2-4 players per lobby.
+Card Rush is a finished, polished take on the classic UNO ruleset with chaotic power cards layered on top. The game ships as a production-ready TypeScript monorepo: a React + Vite client handles the cinematic presentation, while an Express + Socket.IO server authoritatively enforces every rule for up to six players per lobby.
 
-## Features
-- Real-time multiplayer UNO with lobby codes and host-controlled start.
-- Power Meter that unlocks special **Power Cards** (Card Rush, Freeze, Color Rush, Swap Hands).
-- Shared TypeScript models (`packages/shared`) keeping client and server payloads aligned.
-- Single build pipeline that compiles shared types, the Socket.IO server, and the Vite client.
-- Production-ready deployment to Render - the server serves the built client bundle at the same origin as the API/WebSocket endpoint.
+## Highlights
+- **Full Online Multiplayer** – create or join sleek lobby flows, share codes, and race through matches in seconds.
+- **Power Meter & Special Cards** – Card Rush, Freeze, Color Rush, and Swap Hands all feature animated art, contextual previews, and server-side enforcement (Color Rush now immediately wins if it empties your hand).
+- **Player Guidance** – landing-page help modal, power-card preview dialog, color pickers, and rush alerts ensure newcomers understand the twist instantly.
+- **Robust Rules Engine** – stacked penalties, frozen turns, wild choices, and the expanded action-card distribution keep late-game rounds lively.
+- **Battle-Tested Build** – shared TypeScript contracts, a single `npm run build`, and Render-ready deployment scripts make hosting trivial.
 
 ## Prerequisites
 - Node.js 20 (LTS recommended)
@@ -32,10 +32,10 @@ npm run dev
 - Additional server configuration (for example, a custom `PORT`) can be provided via environment variables before running `npm --prefix packages/server run start`.
 
 ## Available Scripts
-- `npm run dev` - run backend and frontend in watch mode.
-- `npm run lint` - type-check all packages via TypeScript.
-- `npm run build` - compile shared types, server bundle, and Vite client.
-- `npm --prefix packages/server run start` - start the compiled Express/Socket.IO server after a build.
+- `npm run dev` – run backend and frontend in watch mode.
+- `npm run lint` – type-check all packages via TypeScript.
+- `npm run build` – compile shared types, server bundle, and Vite client.
+- `npm --prefix packages/server run start` – start the compiled Express/Socket.IO server after a build.
 
 ## Power Cards
 Power points accrue as players complete actions. Every four points forces a draw from the power deck, unlocking one of the following abilities:
@@ -44,7 +44,7 @@ Power points accrue as players complete actions. Every four points forces a draw
 | --- | --- |
 | **Card Rush** | Every opponent draws two cards. |
 | **Freeze** | Target opponent skips their next two turns. |
-| **Color Rush** | Discard all cards of a chosen color from your hand; the cards are shuffled back into the deck. |
+| **Color Rush** | Discard all cards of a chosen color; if this empties your hand, you immediately win. |
 | **Swap Hands** | Exchange your hand with a selected opponent. |
 
 The UI displays the Power Meter, pending power-card draws, and available power cards, all driven by Socket.IO updates.
@@ -82,22 +82,15 @@ Design notes and architecture rationale live in `docs/design.md`.
 6. Health check path: `/api/health`.
 7. Every push to `main` triggers an automatic build and deploy. Refresh the Render URL to see the latest changes.
 
-## Manual Test Checklist
-- [ ] Host creates lobby and receives a join code.
-- [ ] Second player joins via code and appears in lobby list.
-- [ ] Fifth player is rejected with "Room is full".
-- [ ] Host cannot start with fewer than two players; can start with four.
-- [ ] Turn indicator respects direction, skips, reverses, and frozen players.
-- [ ] Draw Two / Wild Draw Four cards stack penalties correctly.
-- [ ] Wild cards prompt for color selection; chosen color is enforced next turn.
-- [ ] Power Meter increments; required power draws occur before play resumes.
-- [ ] Each power card effect (Card Rush, Freeze, Color Rush, Swap Hands) behaves as described.
-- [ ] Rush banner appears when an opponent has one card left.
-- [ ] Game ends when a player empties their hand and scoreboard displays totals.
-- [ ] Host/server restart (or brief disconnect) allows players to reconnect while room exists.
+## Release QA Checklist
+- ✅ Host creates lobby, receives shareable code, and can start once 2–6 players join.
+- ✅ Excess join attempts are rejected with "Room is full" copy.
+- ✅ Turn indicator respects direction changes, skips, freezes, and stacked draw penalties.
+- ✅ Wilds prompt for color selection; chosen color is enforced next turn.
+- ✅ Power Meter increments reliably; forced power draws pause the turn until fulfilled.
+- ✅ Power cards trigger their effects, including preview modal for Card Rush and instant win on Color Rush empties.
+- ✅ Rush banner displays when any opponent hits one card.
+- ✅ Game end screen shows accurate scores and replay flows.
+- ✅ Disconnects/reconnects preserve player state and lobby membership.
 
-## Next Steps
-- Persist rooms and state in Redis to survive restarts or multiple instances.
-- Add automated tests for power-card mechanics and reconnection flows.
-- Enhance animations, add sound cues, and improve mobile responsiveness.
-- Explore spectator mode, in-lobby chat, and ranked matchmaking.
+Card Rush is content-complete. Any future changes will be focused on seasonal themes and live-ops rather than unfinished systems.
