@@ -6,6 +6,7 @@ const { ACTION_CARD_VALUES, CARD_COLORS, NUMBER_CARD_VALUES, POWER_CARD_TYPES } 
 
 export const buildDeck = (): Card[] => {
   const deck: Card[] = [];
+  const ACTION_DUPLICATES_PER_COLOR = 3;
 
   for (const color of CARD_COLORS) {
     deck.push({ id: nanoid(), color, value: "0" });
@@ -16,8 +17,9 @@ export const buildDeck = (): Card[] => {
     }
 
     for (const action of ACTION_CARD_VALUES.filter((a) => a === "skip" || a === "reverse" || a === "draw2")) {
-      deck.push({ id: nanoid(), color, value: action });
-      deck.push({ id: nanoid(), color, value: action });
+      for (let i = 0; i < ACTION_DUPLICATES_PER_COLOR; i += 1) {
+        deck.push({ id: nanoid(), color, value: action });
+      }
     }
   }
 
