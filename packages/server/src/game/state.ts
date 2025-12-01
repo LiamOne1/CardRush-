@@ -38,6 +38,7 @@ export interface PlayCardResult {
 
 export interface PlayPowerCardResult {
   affectedPlayerIds: string[];
+  winnerId?: string;
 }
 
 const DEFAULT_DRAW_COUNT = 1;
@@ -354,6 +355,8 @@ export class UnoGame {
     const [powerCard] = player.powerCards.splice(cardIndex, 1);
     const affectedPlayerIds = new Set<string>();
 
+    let winnerId: string | undefined;
+
     try {
       switch (powerCard.type) {
         case "cardRush": {
@@ -405,6 +408,10 @@ export class UnoGame {
           this.deck = shuffle(this.deck);
 
           affectedPlayerIds.add(player.id);
+          if (player.hand.length === 0 && player.powerCards.length === 0) {
+            this.winnerId = player.id;
+            winnerId = player.id;
+          }
           break;
         }
         case "swapHands": {
@@ -437,7 +444,7 @@ export class UnoGame {
     }
 
     player.hasPlayedPowerCardThisTurn = true;
-    return { affectedPlayerIds: Array.from(affectedPlayerIds) };
+    return { affectedPlayerIds: Array.from(affectedPlayerIds), winnerId };
   }
 
   removePlayer(playerId: string) {

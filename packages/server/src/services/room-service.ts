@@ -368,6 +368,9 @@ export class RoomService {
       }
 
       this.broadcastState(room);
+      if (result.winnerId) {
+        void this.finishGame(room);
+      }
     } catch (error) {
       this.emitError(socket, error instanceof Error ? error.message : "Unable to play power card");
     }

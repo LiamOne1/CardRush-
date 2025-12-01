@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import type {
   Card,
   LobbyState,
@@ -67,6 +67,44 @@ const POWER_CARD_INFO: Record<PowerCard["type"], { label: string; description: s
   }
 };
 
+const POWER_CARD_ART: Record<PowerCard["type"], ReactNode> = {
+  cardRush: (
+    <svg viewBox="0 0 64 64" className="h-12 w-12 text-emerald-200" fill="none">
+      <rect x="6" y="22" width="40" height="26" rx="6" stroke="currentColor" strokeWidth="3" opacity="0.4" />
+      <rect x="18" y="16" width="40" height="26" rx="6" stroke="currentColor" strokeWidth="3" opacity="0.6" />
+      <rect x="10" y="16" width="40" height="26" rx="6" stroke="currentColor" strokeWidth="3" />
+      <path d="M22 26h16M22 34h16" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  ),
+  freeze: (
+    <svg viewBox="0 0 64 64" className="h-12 w-12 text-cyan-200" fill="none">
+      <circle cx="32" cy="32" r="10" stroke="currentColor" strokeWidth="3" />
+      <path
+        d="M32 12v40M18 18l28 28M12 32h40M18 46l28-28"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+    </svg>
+  ),
+  colorRush: (
+    <svg viewBox="0 0 64 64" className="h-12 w-12" fill="none">
+      <circle cx="26" cy="28" r="11" fill="#f87171" opacity="0.85" />
+      <circle cx="38" cy="36" r="11" fill="#22d3ee" opacity="0.85" />
+      <circle cx="34" cy="24" r="11" fill="#facc15" opacity="0.9" />
+      <circle cx="22" cy="38" r="11" fill="#22c55e" opacity="0.85" />
+      <path d="M32 16v32M16 32h32" stroke="#0f172a" strokeWidth="4" strokeLinecap="round" opacity="0.35" />
+    </svg>
+  ),
+  swapHands: (
+    <svg viewBox="0 0 64 64" className="h-12 w-12 text-amber-200" fill="none">
+      <path d="M12 24h26l-6-6M52 40H26l6 6" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+      <path d="M14 46s10 6 18 6 18-6 18-6" stroke="currentColor" strokeWidth="3" strokeLinecap="round" opacity="0.6" />
+      <path d="M14 18s10-6 18-6 18 6 18 6" stroke="currentColor" strokeWidth="3" strokeLinecap="round" opacity="0.6" />
+    </svg>
+  )
+};
+
 const PowerCardToken: React.FC<{
   info: { label: string; description: string };
   card: PowerCard;
@@ -88,7 +126,7 @@ const PowerCardToken: React.FC<{
       <span className="relative text-xs font-semibold uppercase tracking-[0.35em] text-emerald-100">
         {info.label}
       </span>
-      <span className="relative text-[10px] leading-4 text-white/75">{info.description}</span>
+      <div className="relative flex flex-1 items-center justify-center">{POWER_CARD_ART[card.type]}</div>
       <span className="relative self-end text-[10px] uppercase tracking-[0.4em] text-emerald-200">Play</span>
     </button>
   );
@@ -646,6 +684,7 @@ const LandingPanel: React.FC<{
   error?: string;
   accountUser?: AuthUser | null;
 }> = ({ name, setName, room, setRoom, onCreate, onJoin, error, accountUser }) => {
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-6 rounded-3xl border border-white/10 bg-white/5 p-10 text-white shadow-2xl">
       <header className="text-center">
@@ -653,6 +692,13 @@ const LandingPanel: React.FC<{
         <p className="mt-4 text-sm text-white/60">
           Create a lobby or join with a room code. Plays best with 2-4 friends.
         </p>
+        <button
+          type="button"
+          onClick={() => setIsHelpOpen(true)}
+          className="mt-6 inline-flex items-center justify-center rounded-full border border-white/30 px-6 py-2 text-xs font-semibold uppercase tracking-[0.4em] text-white transition hover:bg-white/10"
+        >
+          Help
+        </button>
       </header>
 
       {accountUser && (
@@ -704,6 +750,48 @@ const LandingPanel: React.FC<{
         </div>
       </div>
       {error && <p className="text-center text-sm text-red-300">{error}</p>}
+      {isHelpOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Card Rush help dialog"
+          onClick={() => setIsHelpOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-slate-950/95 p-8 text-left shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 className="font-display text-2xl uppercase tracking-[0.3em] text-white">How It Works</h3>
+            <p className="mt-4 text-sm text-white/70">Follows original crazy eight card rules with a twist.</p>
+            <p className="mt-4 text-sm text-white/70">
+              Power cards are special new cards that stir up chaos and bring new excitement to the game. They are
+              obtained by playing action cards like{" "}
+              <span className="font-semibold text-white">Skip, Reverse, Draw 2, Wild,</span> and{" "}
+              <span className="font-semibold text-white">Wild Draw 4</span>.
+            </p>
+            <p className="mt-6 text-xs uppercase tracking-[0.35em] text-white/50">Power cards</p>
+            <ul className="mt-3 space-y-3 text-sm text-white/80">
+              {Object.values(POWER_CARD_INFO).map((info) => (
+                <li
+                  key={info.label}
+                  className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3"
+                >
+                  <p className="font-semibold uppercase tracking-[0.3em] text-emerald-200">{info.label}</p>
+                  <p className="mt-1 text-white/70">{info.description}</p>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              onClick={() => setIsHelpOpen(false)}
+              className="mt-6 w-full rounded-2xl bg-emerald-500/90 px-4 py-3 text-sm font-semibold uppercase tracking-[0.4em] text-emerald-950 transition hover:bg-emerald-400"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -762,6 +850,7 @@ const App: React.FC = () => {
   const [gameState, setGameState] = useState<PublicGameState | null>(null);
   const [hand, setHand] = useState<Card[]>(initialHandState);
   const [powerState, setPowerState] = useState<PowerStatePayload>(initialPowerState);
+  const [pendingPowerPreview, setPendingPowerPreview] = useState<PowerCard | null>(null);
   const [pendingPowerAction, setPendingPowerAction] = useState<{ card: PowerCard; mode: "target" | "color" } | null>(null);
   const [pendingWild, setPendingWild] = useState<Card | null>(null);
   const [lastError, setLastError] = useState<string | undefined>();
@@ -851,6 +940,7 @@ const App: React.FC = () => {
           setHand(initialHandState);
           setPowerState(initialPowerState);
           setPendingPowerAction(null);
+          setPendingPowerPreview(null);
           setActiveEmotes({});
           return "lobby";
         }
@@ -863,6 +953,7 @@ const App: React.FC = () => {
       setPendingWild(null);
       setPowerState(initialPowerState);
       setPendingPowerAction(null);
+      setPendingPowerPreview(null);
       setEndState(null);
       setActiveEmotes({});
       setPhase("game");
@@ -885,6 +976,7 @@ const App: React.FC = () => {
       setEndState(payload);
       setPowerState(initialPowerState);
       setPendingPowerAction(null);
+      setPendingPowerPreview(null);
       setActiveEmotes({});
       setPhase("ended");
       void refreshProfile();
@@ -1053,6 +1145,7 @@ const App: React.FC = () => {
     setHand(initialHandState);
     setPowerState(initialPowerState);
     setPendingPowerAction(null);
+    setPendingPowerPreview(null);
     setPendingWild(null);
     setEndState(null);
     setRoomCode("");
@@ -1092,7 +1185,7 @@ const App: React.FC = () => {
     if (!gameState) return;
     switch (card.type) {
       case "cardRush":
-        socket.emit("playPowerCard", { cardId: card.id });
+        setPendingPowerPreview(card);
         break;
       case "freeze":
       case "swapHands":
@@ -1104,6 +1197,23 @@ const App: React.FC = () => {
       default:
         break;
     }
+  };
+
+  const handleConfirmPowerPreview = () => {
+    if (!pendingPowerPreview) return;
+    if (!gameState) {
+      setPendingPowerPreview(null);
+      return;
+    }
+    const card = pendingPowerPreview;
+    setPendingPowerPreview(null);
+    if (card.type === "cardRush") {
+      socket.emit("playPowerCard", { cardId: card.id });
+    }
+  };
+
+  const handleCancelPowerPreview = () => {
+    setPendingPowerPreview(null);
   };
 
   const handlePowerTargetSelect = (targetId: string) => {
@@ -1129,6 +1239,7 @@ const App: React.FC = () => {
     setHand(initialHandState);
     setPowerState(initialPowerState);
     setPendingPowerAction(null);
+    setPendingPowerPreview(null);
     setPendingWild(null);
     setRushNotice(null);
   };
@@ -1183,6 +1294,34 @@ const App: React.FC = () => {
         )}
         {phase === "ended" && endState && lobbyState && (
           <GameOverPanel data={endState} players={lobbyState.players} onPlayAgain={handleReplay} />
+        )}
+        {pendingPowerPreview && (
+          <section className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" role="dialog" aria-modal="true">
+            <div className="w-80 rounded-3xl bg-slate-900 p-6 text-center shadow-2xl">
+              <p className="text-xs uppercase tracking-[0.4em] text-white/40">Power Card Preview</p>
+              <h3 className="mt-2 text-lg font-semibold uppercase tracking-widest text-white/90">
+                {POWER_CARD_INFO[pendingPowerPreview.type].label}
+              </h3>
+              <div className="mt-4 flex justify-center">{POWER_CARD_ART[pendingPowerPreview.type]}</div>
+              <p className="mt-4 text-sm text-white/70">{POWER_CARD_INFO[pendingPowerPreview.type].description}</p>
+              <div className="mt-6 space-y-3">
+                <button
+                  type="button"
+                  onClick={handleConfirmPowerPreview}
+                  className="w-full rounded-2xl bg-emerald-500/90 px-4 py-3 text-sm font-semibold uppercase tracking-[0.4em] text-emerald-950 transition hover:bg-emerald-400"
+                >
+                  Play Card
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelPowerPreview}
+                  className="w-full rounded-2xl border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.4em] text-white transition hover:bg-white/10"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </section>
         )}
         {pendingPowerAction && gameState && (
           <section className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
