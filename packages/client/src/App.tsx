@@ -689,9 +689,7 @@ const LandingPanel: React.FC<{
     <div className="mx-auto flex w-full max-w-xl flex-col gap-6 rounded-3xl border border-white/10 bg-white/5 p-10 text-white shadow-2xl">
       <header className="text-center">
         <h1 className="font-display text-4xl uppercase tracking-[0.4em] text-white">Card Rush!</h1>
-        <p className="mt-4 text-sm text-white/60">
-          Create a lobby or join with a room code. Plays best with 2-4 friends.
-        </p>
+        <p className="mt-4 text-sm text-white/60">Create a lobby or join with a room code.</p>
         <button
           type="button"
           onClick={() => setIsHelpOpen(true)}
