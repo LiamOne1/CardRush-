@@ -342,7 +342,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ user, initializing, onLogin
               placeholder="How friends see you"
               required
               minLength={2}
-              maxLength={50}
+              maxLength={20}
             />
           </label>
         )}
@@ -721,6 +721,7 @@ const LandingPanel: React.FC<{
           onChange={(event) => setName(event.target.value)}
           placeholder="e.g. Liam"
           className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white focus:border-emerald-400 focus:outline-none"
+          maxLength={20}
         />
       </label>
 
@@ -1089,6 +1090,10 @@ const App: React.FC = () => {
       setLastError("Enter a display name first");
       return;
     }
+    if (trimmedName.length > 20) {
+      setLastError("Display name must be 20 characters or fewer");
+      return;
+    }
     setName(trimmedName);
     socket.emit("createRoom", trimmedName, (room) => {
       const hostId = playerId ?? "pending-host";
@@ -1120,6 +1125,10 @@ const App: React.FC = () => {
     const trimmedCode = roomCode.trim().toUpperCase();
     if (!trimmedName || !trimmedCode) {
       setLastError("Enter both name and room code");
+      return;
+    }
+    if (trimmedName.length > 20) {
+      setLastError("Display name must be 20 characters or fewer");
       return;
     }
     setName(trimmedName);

@@ -38,6 +38,12 @@ export class AuthService {
   async registerUser(payload: RegistrationPayload): Promise<AuthenticatedUser> {
     const email = payload.email.trim().toLowerCase();
     const displayName = payload.displayName.trim();
+    if (displayName.length === 0) {
+      throw new Error("Display name is required");
+    }
+    if (displayName.length > 20) {
+      throw new Error("Display name must be 20 characters or fewer");
+    }
     const existing = await this.db
       .selectFrom("users")
       .select("id")
